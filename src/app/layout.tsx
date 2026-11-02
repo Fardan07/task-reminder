@@ -1,10 +1,25 @@
 import type { Metadata } from "next";
+import { Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
+const spaceGrotesk = Space_Grotesk({
+  subsets: ["latin"],
+  weight: ["500", "600", "700"],
+  variable: "--font-space-grotesk",
+  display: "swap",
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  weight: ["500", "700", "800"],
+  variable: "--font-jetbrains-mono",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
-  title: "SIJAsisten — Dashboard Tugas & WhatsApp Reminder XII SIJA 1",
+  title: "SIJASISTEN — Zine Task Reminder & WhatsApp Generator",
   description:
-    "Aplikasi dashboard sekretaris kelas XII SIJA 1 untuk konsolidasi tugas siswa dan generator format reminder WhatsApp terstandarisasi.",
+    "Aplikasi pencatat draft tugas harian & generator format reminder WhatsApp bergaya Neo-Brutalist Zine untuk Sekretaris Kelas XII SIJA 1.",
 };
 
 export default function RootLayout({
@@ -13,8 +28,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="id">
-      <body className="min-h-screen bg-[#F9FAFB] text-[#111827] antialiased selection:bg-blue-600 selection:text-white">
+    <html
+      lang="id"
+      className={`${spaceGrotesk.variable} ${jetbrainsMono.variable}`}
+    >
+      <body className="min-h-screen bg-zine-paper text-[#141413] antialiased selection:bg-[#C8F560] selection:text-[#141413]">
         {children}
       </body>
     </html>

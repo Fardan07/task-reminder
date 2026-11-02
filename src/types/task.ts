@@ -1,43 +1,32 @@
-export type DayOfWeek =
-  | "Senin"
-  | "Selasa"
-  | "Rabu"
-  | "Kamis"
-  | "Jumat"
-  | "Sabtu";
+export type DayOfWeek = "SENIN" | "SELASA" | "RABU" | "KAMIS" | "JUMAT";
 
-export type TaskType =
-  | "PR / Latihan"
-  | "Tugas Individu"
-  | "Tugas Kelompok"
-  | "Praktikum Lab"
-  | "Ulangan / Kuis";
-
-export type SubmissionMethod = "MyLms" | "Buku Tulis";
-
-export interface SubjectSchedule {
+export interface TaskLinkItem {
   id: string;
-  name: string; // ONLY abbreviation: e.g. "KA-2", "S.IOT", "MATEMATIKA"
-  defaultDay: DayOfWeek;
-  availableDates: {
-    id: string;
-    day: DayOfWeek;
-    dateFormatted: string; // e.g. "Kamis, 27 Agustus 2026"
-  }[];
+  label: string; // contoh: "Link Notion"
+  url: string;
 }
 
-export interface TaskItem {
+export interface TaskPointItem {
   id: string;
-  subjectId: string;
-  subjectName: string; // ONLY abbreviation: e.g. "KA-2"
-  day: DayOfWeek;
-  dueDate: string;     // e.g. "Kamis, 27 Agustus 2026"
-  details: string;     // Detailed task content
-  taskType: TaskType;
-  deadlineTime: string;// e.g. "23.59 WIB" or "07.15 WIB"
-  submissionMethod: SubmissionMethod;
-  isCompleted: boolean;
-  createdAt: string;
+  text: string;
 }
 
-export type ReminderFormatStyle = "standard" | "compact" | "formal";
+export interface SubjectDraft {
+  subjectKey: string; // Normalized key (e.g., "KA-2", "MATEMATIKA", "PAAS")
+  subjectName: string; // Display name (e.g., "KA - 2", "PAaS")
+  points: TaskPointItem[];
+  links: TaskLinkItem[];
+  /**
+   * "ALL" berarti tampil di pertemuan mapel tersebut berikutnya (hari apa saja mapel itu ada).
+   * Jika diisi DayOfWeek spesifik, hanya tampil di hari tersebut.
+   */
+  targetDay: DayOfWeek | "ALL";
+  updatedAt: string;
+}
+
+export type WeeklyScheduleMap = Record<DayOfWeek, string[]>;
+
+export interface ClassConfig {
+  className: string;
+  schedule: WeeklyScheduleMap;
+}

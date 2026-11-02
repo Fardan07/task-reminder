@@ -1,553 +1,720 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState } from "react";
 import {
-  FileText,
-  Save,
-  CheckCircle2,
   Calendar,
-  Sparkles,
-  Check,
-  AlertCircle,
-  CalendarDays,
-  Clock,
-  BookOpen,
-  PlusCircle,
+  Plus,
+  Trash2,
+  CheckCircle2,
+  Link as LinkIcon,
   RotateCcw,
+  Repeat,
 } from "lucide-react";
 import {
   DayOfWeek,
-  TaskItem,
-  TaskType,
-  SubmissionMethod,
+  SubjectDraft,
+  TaskLinkItem,
+  TaskPointItem,
+  WeeklyScheduleMap,
 } from "@/types/task";
 import {
-  WEEKLY_TIMETABLE,
-  DEFAULT_DAY_DATES,
-  SUBJECT_SCHEDULES,
+  DAYS_OF_WEEK,
+  formatDateUpperIndonesian,
+  getDaysForSubject,
+  normalizeSubjectKey,
 } from "@/data/mockData";
+import { isSubjectDraftActiveForDay } from "@/utils/reminderFormatter";
 
 interface TaskFormPanelProps {
-  tasks: TaskItem[];
-  onSaveDailyTasks: (day: DayOfWeek, dueDate: string, newTasks: TaskItem[]) => void;
-  selectedDayTab: string;
-  onSelectDayTab: (day: DayOfWeek) => void;
+  selectedDay: DayOfWeek;
+  selectedIsoDate: string;
+  smartTomorrowDay: DayOfWeek;
+  smartTomorrowIsoDate: string;
+  schedule: WeeklyScheduleMap;
+  drafts: Record<string, SubjectDraft>;
+  onSelectDay: (day: DayOfWeek) => void;
+  onChangeIsoDate: (isoDate: string) => void;
+  onJumpToTomorrow: () => void;
+  onUpdateSubjectDraft: (subjectName: string, draft: SubjectDraft) => void;
+  onClearSubjectDraft: (subjectName: string) => void;
+  onClearAllDaySubjects: (day: DayOfWeek) => void;
 }
 
-interface SubjectFormState {
-  subjectName: string;
-  hasTask: boolean;
-  details: string;
-  taskType: TaskType;
-  deadlineTime: string;
-  submissionMethod: SubmissionMethod;
-}
-
-const TASK_TYPES: TaskType[] = [
-  "PR / Latihan",
-  "Tugas Individu",
-  "Tugas Kelompok",
-  "Praktikum Lab",
-  "Ulangan / Kuis",
+const SUBJECT_ACCENT_PALETTE = [
+  {
+    bg: "bg-[#C8F560]",
+    ribbon: "bg-[#C8F560]",
+    softBg: "bg-[#C8F560]/20",
+    label: "LIME",
+  },
+  {
+    bg: "bg-[#FF7A59]",
+    ribbon: "bg-[#FF7A59]",
+    softBg: "bg-[#FF7A59]/15",
+    label: "CORAL",
+  },
+  {
+    bg: "bg-[#C4B5FD]",
+    ribbon: "bg-[#C4B5FD]",
+    softBg: "bg-[#C4B5FD]/25",
+    label: "LAVENDER",
+  },
+  {
+    bg: "bg-[#7DD3FC]",
+    ribbon: "bg-[#7DD3FC]",
+    softBg: "bg-[#7DD3FC]/25",
+    label: "SKY",
+  },
 ];
 
-const SUBMISSION_METHODS: SubmissionMethod[] = ["MyLms", "Buku Tulis"];
-
-const DAYS: DayOfWeek[] = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat"];
-
 export const TaskFormPanel: React.FC<TaskFormPanelProps> = ({
-  tasks,
-  onSaveDailyTasks,
-  selectedDayTab,
-  onSelectDayTab,
+  selectedDay,
+  selectedIsoDate,
+  smartTomorrowDay,
+  smartTomorrowIsoDate,
+  schedule,
+  drafts,
+  onSelectDay,
+  onChangeIsoDate,
+  onJumpToTomorrow,
+  onUpdateSubjectDraft,
+  onClearSubjectDraft,
+  onClearAllDaySubjects,
 }) => {
-  const currentDay = (
-    DAYS.includes(selectedDayTab as DayOfWeek) ? selectedDayTab : "Rabu"
-  ) as DayOfWeek;
+  const [expandedKeys, setExpandedKeys] = useState<Record<string, boolean>>({});
+  const [openLinkKeys, setOpenLinkKeys] = useState<Record<string, boolean>>({});
 
-  const [formDueDate, setFormDueDate] = useState<string>(
-    DEFAULT_DAY_DATES[currentDay] || ""
-  );
+  const daySubjects = schedule[selectedDay] || [];
+  const formattedDate = formatDateUpperIndonesian(selectedIsoDate);
+  const isShowingSmartTomorrow =
+    selectedDay === smartTomorrowDay && selectedIsoDate === smartTomorrowIsoDate;
 
-  const [subjectStates, setSubjectStates] = useState<SubjectFormState[]>([]);
-  const [isSuccessToast, setIsSuccessToast] = useState(false);
-  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const toggleExpandSubject = (subjectName: string) => {
+    const key = normalizeSubjectKey(subjectName);
+    const existing = drafts[key];
+    const isActive = isSubjectDraftActiveForDay(existing, selectedDay);
 
-  // Sync form states whenever selectedDayTab or tasks change
-  useEffect(() => {
-    const daySubjects = WEEKLY_TIMETABLE[currentDay] || [];
-    const dayTasks = tasks.filter((t) => t.day === currentDay);
-
-    const existingDate =
-      dayTasks.find((t) => t.dueDate)?.dueDate ||
-      DEFAULT_DAY_DATES[currentDay] ||
-      `${currentDay}, Pekan Berjalan`;
-    setFormDueDate(existingDate);
-
-    const initialStates: SubjectFormState[] = daySubjects.map((subjName) => {
-      const existing = dayTasks.find((t) => t.subjectName === subjName);
-      if (existing) {
-        return {
-          subjectName: subjName,
-          hasTask: true,
-          details: existing.details,
-          taskType: existing.taskType,
-          deadlineTime: existing.deadlineTime,
-          submissionMethod: existing.submissionMethod,
-        };
-      }
-      return {
-        subjectName: subjName,
-        hasTask: false,
-        details: "",
-        taskType: "PR / Latihan",
-        deadlineTime: "23.59 WIB",
-        submissionMethod: "MyLms",
+    if (!isActive && !expandedKeys[key]) {
+      const initialDraft: SubjectDraft = {
+        subjectKey: key,
+        subjectName,
+        points: [{ id: `pt-${Date.now()}`, text: "" }],
+        links: [],
+        targetDay: "ALL",
+        updatedAt: new Date().toISOString(),
       };
-    });
-
-    setSubjectStates(initialStates);
-  }, [currentDay, tasks]);
-
-  const handleDayTabClick = (day: DayOfWeek) => {
-    onSelectDayTab(day);
+      onUpdateSubjectDraft(subjectName, initialDraft);
+      setExpandedKeys((prev) => ({ ...prev, [key]: true }));
+    } else {
+      setExpandedKeys((prev) => ({ ...prev, [key]: !prev[key] }));
+    }
   };
 
-  const handleToggleSubject = (index: number) => {
-    setSubjectStates((prev) =>
-      prev.map((item, idx) =>
-        idx === index ? { ...item, hasTask: !item.hasTask } : item
-      )
-    );
-  };
-
-  const handleFieldChange = <K extends keyof SubjectFormState>(
-    index: number,
-    field: K,
-    value: SubjectFormState[K]
+  const handlePointChange = (
+    subjectName: string,
+    pointId: string,
+    newText: string
   ) => {
-    setSubjectStates((prev) =>
-      prev.map((item, idx) =>
-        idx === index ? { ...item, [field]: value } : item
-      )
+    const key = normalizeSubjectKey(subjectName);
+    const current = drafts[key] || {
+      subjectKey: key,
+      subjectName,
+      points: [],
+      links: [],
+      targetDay: "ALL",
+      updatedAt: new Date().toISOString(),
+    };
+
+    const updatedPoints = current.points.map((p) =>
+      p.id === pointId ? { ...p, text: newText } : p
     );
-  };
 
-  const handleApplyTemplate = (
-    index: number,
-    templateText: string,
-    method?: SubmissionMethod
-  ) => {
-    setSubjectStates((prev) =>
-      prev.map((item, idx) => {
-        if (idx === index) {
-          return {
-            ...item,
-            hasTask: true,
-            details: item.details
-              ? `${item.details}\n${templateText}`
-              : templateText,
-            submissionMethod: method || item.submissionMethod,
-          };
-        }
-        return item;
-      })
-    );
-  };
-
-  const handleSetAllActive = () => {
-    setSubjectStates((prev) =>
-      prev.map((item) => ({ ...item, hasTask: true }))
-    );
-  };
-
-  const handleSetAllNihil = () => {
-    setSubjectStates((prev) =>
-      prev.map((item) => ({ ...item, hasTask: false }))
-    );
-  };
-
-  const handleSaveAll = (e: React.FormEvent) => {
-    e.preventDefault();
-
-    const tasksToSave: TaskItem[] = [];
-
-    subjectStates.forEach((subj) => {
-      if (subj.hasTask && subj.details.trim()) {
-        const foundSubj = SUBJECT_SCHEDULES.find((s) => s.name === subj.subjectName);
-        tasksToSave.push({
-          id: `task-${currentDay.toLowerCase()}-${subj.subjectName.toLowerCase()}-${Date.now()}`,
-          subjectId: foundSubj?.id || `sub-${subj.subjectName.toLowerCase()}`,
-          subjectName: subj.subjectName,
-          day: currentDay,
-          dueDate: formDueDate,
-          details: subj.details.trim(),
-          taskType: subj.taskType,
-          deadlineTime: subj.deadlineTime || "23.59 WIB",
-          submissionMethod: subj.submissionMethod,
-          isCompleted: false,
-          createdAt: new Date().toISOString(),
-        });
-      }
+    onUpdateSubjectDraft(subjectName, {
+      ...current,
+      subjectName,
+      points: updatedPoints,
+      updatedAt: new Date().toISOString(),
     });
-
-    onSaveDailyTasks(currentDay, formDueDate, tasksToSave);
-
-    setIsSuccessToast(true);
-    setTimeout(() => {
-      setIsSuccessToast(false);
-    }, 2800);
   };
 
-  const activeSubjectsCount = subjectStates.filter((s) => s.hasTask).length;
+  const handleAddPoint = (subjectName: string) => {
+    const key = normalizeSubjectKey(subjectName);
+    const current = drafts[key] || {
+      subjectKey: key,
+      subjectName,
+      points: [],
+      links: [],
+      targetDay: "ALL",
+      updatedAt: new Date().toISOString(),
+    };
+
+    const newPoint: TaskPointItem = {
+      id: `pt-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      text: "",
+    };
+
+    onUpdateSubjectDraft(subjectName, {
+      ...current,
+      subjectName,
+      points: [...current.points, newPoint],
+      updatedAt: new Date().toISOString(),
+    });
+    setExpandedKeys((prev) => ({ ...prev, [key]: true }));
+  };
+
+  const handleRemovePoint = (subjectName: string, pointId: string) => {
+    const key = normalizeSubjectKey(subjectName);
+    const current = drafts[key];
+    if (!current) return;
+
+    const updatedPoints = current.points.filter((p) => p.id !== pointId);
+    onUpdateSubjectDraft(subjectName, {
+      ...current,
+      points: updatedPoints,
+      updatedAt: new Date().toISOString(),
+    });
+  };
+
+  const handleAddLink = (subjectName: string) => {
+    const key = normalizeSubjectKey(subjectName);
+    const current = drafts[key] || {
+      subjectKey: key,
+      subjectName,
+      points: [],
+      links: [],
+      targetDay: "ALL",
+      updatedAt: new Date().toISOString(),
+    };
+
+    const newLink: TaskLinkItem = {
+      id: `lnk-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      label: "Link Notion",
+      url: "",
+    };
+
+    onUpdateSubjectDraft(subjectName, {
+      ...current,
+      subjectName,
+      links: [...current.links, newLink],
+      updatedAt: new Date().toISOString(),
+    });
+    setOpenLinkKeys((prev) => ({ ...prev, [key]: true }));
+    setExpandedKeys((prev) => ({ ...prev, [key]: true }));
+  };
+
+  const handleLinkChange = (
+    subjectName: string,
+    linkId: string,
+    field: "label" | "url",
+    value: string
+  ) => {
+    const key = normalizeSubjectKey(subjectName);
+    const current = drafts[key];
+    if (!current) return;
+
+    const updatedLinks = current.links.map((l) =>
+      l.id === linkId ? { ...l, [field]: value } : l
+    );
+
+    onUpdateSubjectDraft(subjectName, {
+      ...current,
+      links: updatedLinks,
+      updatedAt: new Date().toISOString(),
+    });
+  };
+
+  const handleRemoveLink = (subjectName: string, linkId: string) => {
+    const key = normalizeSubjectKey(subjectName);
+    const current = drafts[key];
+    if (!current) return;
+
+    const updatedLinks = current.links.filter((l) => l.id !== linkId);
+    onUpdateSubjectDraft(subjectName, {
+      ...current,
+      links: updatedLinks,
+      updatedAt: new Date().toISOString(),
+    });
+  };
+
+  const handleTargetDayChange = (
+    subjectName: string,
+    targetDay: DayOfWeek | "ALL"
+  ) => {
+    const key = normalizeSubjectKey(subjectName);
+    const current = drafts[key];
+    if (!current) return;
+
+    onUpdateSubjectDraft(subjectName, {
+      ...current,
+      targetDay,
+      updatedAt: new Date().toISOString(),
+    });
+  };
+
+  const handleClearSingleSubject = (subjectName: string) => {
+    const key = normalizeSubjectKey(subjectName);
+    onClearSubjectDraft(subjectName);
+    setExpandedKeys((prev) => ({ ...prev, [key]: false }));
+    setOpenLinkKeys((prev) => ({ ...prev, [key]: false }));
+  };
+
+  const activeCountToday = daySubjects.filter((subj) => {
+    const key = normalizeSubjectKey(subj);
+    return isSubjectDraftActiveForDay(drafts[key], selectedDay);
+  }).length;
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg p-5 sm:p-6 text-gray-900 shadow-none">
-      {/* Panel Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-4 mb-4 border-b border-gray-200">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600 shrink-0">
-            <FileText className="w-4 h-4 stroke-[2.2]" />
-          </div>
-          <div>
-            <h2 className="text-base font-bold text-gray-900 leading-tight">
-              Rekap Laporan Harian (Multi-Mapel)
-            </h2>
-            <p className="text-xs text-gray-500">
-              Input tagihan seluruh 4-5 mapel sekaligus sesuai jadwal resmi XII SIJA 1
-            </p>
-          </div>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => setShowScheduleModal(!showScheduleModal)}
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded border border-blue-200 transition-colors cursor-pointer self-start sm:self-auto"
+    <div className="space-y-6">
+      {/* 1. KARTU TARGET HARI (FESTIVAL TICKET CUTOUT + ACID LIME #C8F560) */}
+      <div className="bg-[#C8F560] neo-card relative overflow-hidden">
+        {/* Decorative Corner Starburst SVG (Background Watermark) */}
+        <svg
+          viewBox="0 0 100 100"
+          className="w-24 h-24 text-[#141413]/10 absolute -top-4 -right-4 pointer-events-none"
+          fill="currentColor"
+          aria-hidden="true"
         >
-          <CalendarDays className="w-3.5 h-3.5" />
-          <span>{showScheduleModal ? "Tutup Jadwal" : "Lihat Jadwal"}</span>
-        </button>
-      </div>
+          <path d="M50 0 L61 35 L96 25 L71 50 L96 75 L61 65 L50 100 L39 65 L4 75 L29 50 L4 25 L39 35 Z" />
+        </svg>
 
-      {/* Collapsible Weekly Schedule Card */}
-      {showScheduleModal && (
-        <div className="mb-4 p-3.5 bg-gray-50 border border-gray-200 rounded-lg text-xs animate-in fade-in duration-150">
-          <div className="font-bold text-gray-900 mb-2 flex items-center justify-between">
-            <span>📅 Jadwal Pelajaran Mingguan XII SIJA 1:</span>
-            <span className="text-[11px] text-gray-500 font-mono">2026/2027</span>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-            {Object.entries(WEEKLY_TIMETABLE).map(([day, subjects]) => (
-              <div
-                key={day}
-                className={`p-2 rounded border transition-colors ${
-                  day === currentDay
-                    ? "bg-blue-50 border-blue-300 ring-1 ring-blue-400"
-                    : "bg-white border-gray-200"
-                }`}
-              >
-                <div className="font-bold text-blue-600 uppercase text-[11px] border-b border-gray-100 pb-1 mb-1 flex items-center justify-between">
-                  <span>{day}</span>
-                  {day === currentDay && (
-                    <span className="text-[9px] bg-blue-600 text-white px-1 rounded">
-                      Aktif
-                    </span>
-                  )}
-                </div>
-                <ul className="space-y-0.5 text-[10px] text-gray-700">
-                  {subjects.map((subj, idx) => (
-                    <li key={idx} className="font-bold truncate">
-                      • {subj}
-                    </li>
-                  ))}
-                </ul>
+        {/* Top Section of Ticket */}
+        <div className="p-4 sm:p-5 relative z-10">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+            <div>
+              {/* Tilted Physical Sticker Status Badge */}
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#141413] text-[#FFFDF9] border-2 border-[#141413] rounded-full text-[11px] font-bold uppercase tracking-wider shadow-[2px_2px_0px_#FF5A36] mb-2.5 -rotate-1">
+                <span className="text-[#C8F560]">✦</span>
+                <span>
+                  {isShowingSmartTomorrow
+                    ? "OTOMATIS: JADWAL HARI BESOK"
+                    : `MODE CEK JADWAL HARI ${selectedDay}`}
+                </span>
               </div>
-            ))}
+
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl sm:text-2xl font-extrabold uppercase tracking-tight text-[#141413]">
+                  TARGET HARI: {selectedDay}
+                </h2>
+                <span className="font-mono text-xs font-bold text-[#141413]/70">
+                  [+]
+                </span>
+              </div>
+
+              <div className="inline-flex items-center gap-2 mt-1.5 px-2.5 py-0.5 bg-[#FFFDF9] border-2 border-[#141413] rounded-md shadow-[2px_2px_0px_#141413]">
+                <span className="font-mono text-xs sm:text-sm font-extrabold text-[#141413]">
+                  {formattedDate}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {!isShowingSmartTomorrow && (
+                <button
+                  type="button"
+                  onClick={onJumpToTomorrow}
+                  className="bg-[#DDD6FE] hover:bg-[#C4B5FD] text-[#141413] font-bold text-xs px-3 py-2 neo-btn-sm cursor-pointer flex items-center gap-1.5 rotate-1"
+                >
+                  <RotateCcw className="w-3.5 h-3.5 stroke-[2.4]" />
+                  <span>Ke Besok ({smartTomorrowDay})</span>
+                </button>
+              )}
+
+              {/* Pemilih Tanggal */}
+              <div className="flex items-center gap-1.5 bg-[#FFFDF9] border-2 border-[#141413] rounded-lg px-3 py-1.5 shadow-[3px_3px_0px_#141413]">
+                <Calendar className="w-4 h-4 text-[#FF5A36] stroke-[2.5] shrink-0" />
+                <input
+                  type="date"
+                  value={selectedIsoDate}
+                  onChange={(e) => onChangeIsoDate(e.target.value)}
+                  aria-label="Pilih tanggal reminder"
+                  className="font-mono text-xs font-extrabold text-[#141413] bg-transparent focus:outline-none cursor-pointer"
+                />
+              </div>
+            </div>
           </div>
         </div>
-      )}
 
-      {/* Step 1: Select Day Tab for Daily Recap */}
-      <div className="mb-4 bg-gray-50 p-3 rounded-lg border border-gray-200">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
-          <label className="text-xs font-bold text-gray-800 uppercase tracking-wider">
-            1. Pilih Hari Rekap KBM:
-          </label>
-          <div className="flex items-center gap-1.5">
-            <span className="text-[11px] text-gray-600 font-medium">Tanggal:</span>
-            <input
-              type="text"
-              value={formDueDate}
-              onChange={(e) => setFormDueDate(e.target.value)}
-              placeholder="Contoh: Rabu, 26 Agustus 2026"
-              className="bg-white border border-gray-300 rounded px-2.5 py-1 text-xs font-semibold text-gray-900 focus:outline-none focus:border-blue-600 w-52"
-            />
-          </div>
+        {/* TICKET PERFORATION DIVIDER WITH LEFT & RIGHT PUNCH NOTCHES */}
+        <div className="relative flex items-center justify-between my-0.5">
+          {/* Left Semicircle Cutout Notch */}
+          <div
+            className="w-6 h-6 rounded-full bg-[#F3EFE6] border-2 border-[#141413] -ml-3.5 shrink-0 z-10"
+            aria-hidden="true"
+          />
+          {/* Dashed Ticket Tear Line */}
+          <div className="w-full border-t-2 border-dashed border-[#141413] mx-1" />
+          {/* Right Semicircle Cutout Notch */}
+          <div
+            className="w-6 h-6 rounded-full bg-[#F3EFE6] border-2 border-[#141413] -mr-3.5 shrink-0 z-10"
+            aria-hidden="true"
+          />
         </div>
 
-        {/* Day selection tabs */}
-        <div className="grid grid-cols-5 gap-1.5">
-          {DAYS.map((day) => {
-            const isSelected = day === currentDay;
-            const daySubjs = WEEKLY_TIMETABLE[day] || [];
-            return (
-              <button
-                key={day}
-                type="button"
-                onClick={() => handleDayTabClick(day)}
-                className={`py-2 px-2 rounded text-xs font-bold transition-colors duration-150 text-center cursor-pointer ${
-                  isSelected
-                    ? "bg-[#2563EB] text-white"
-                    : "bg-white hover:bg-gray-200 text-gray-700 border border-gray-200"
-                }`}
-              >
-                <div>{day}</div>
-                <div
-                  className={`text-[10px] font-normal mt-0.5 ${
-                    isSelected ? "text-blue-100" : "text-gray-500"
+        {/* Bottom Section of Ticket: Day Tabs */}
+        <div className="p-4 sm:p-5 pt-3.5 relative z-10">
+          <div className="flex items-center justify-between text-xs font-extrabold uppercase mb-2.5">
+            <span className="flex items-center gap-1.5">
+              <span className="font-mono text-[#141413]">{"///"}</span>
+              <span>PILIH HARI KBM:</span>
+            </span>
+            <span className="font-mono bg-[#141413] text-[#C8F560] px-2.5 py-0.5 border-2 border-[#141413] rounded-full text-[11px] font-bold">
+              {activeCountToday}/{daySubjects.length} MAPEL ISI
+            </span>
+          </div>
+
+          <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
+            {DAYS_OF_WEEK.map((day) => {
+              const isSelected = day === selectedDay;
+              const isTomorrow = day === smartTomorrowDay;
+              const subjectsOfDay = schedule[day] || [];
+              const activeInDay = subjectsOfDay.filter((s) =>
+                isSubjectDraftActiveForDay(
+                  drafts[normalizeSubjectKey(s)],
+                  day
+                )
+              ).length;
+
+              return (
+                <button
+                  key={day}
+                  type="button"
+                  onClick={() => onSelectDay(day)}
+                  className={`py-2.5 px-1 sm:px-2 neo-btn-sm cursor-pointer text-center relative ${
+                    isSelected
+                      ? "bg-[#141413] text-[#C8F560]"
+                      : "bg-[#FFFDF9] hover:bg-[#DDD6FE] text-[#141413]"
                   }`}
                 >
-                  {daySubjs.length} Mapel
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Quick Batch Controls */}
-      <div className="flex items-center justify-between mb-3 text-xs">
-        <div className="flex items-center gap-1.5 font-bold text-gray-800">
-          <span>Daftar Mapel Hari {currentDay}:</span>
-          <span className="bg-blue-100 text-blue-800 text-[11px] px-2 py-0.5 rounded font-mono">
-            {activeSubjectsCount} dari {subjectStates.length} Ada Tugas
-          </span>
-        </div>
-
-        <div className="flex items-center gap-1.5 text-[11px]">
-          <button
-            type="button"
-            onClick={handleSetAllActive}
-            className="text-blue-600 hover:text-blue-800 font-semibold px-2 py-0.5 rounded bg-blue-50 border border-blue-200 cursor-pointer"
-          >
-            Aktifkan Semua
-          </button>
-          <button
-            type="button"
-            onClick={handleSetAllNihil}
-            className="text-gray-600 hover:text-gray-800 font-medium px-2 py-0.5 rounded bg-gray-100 border border-gray-200 cursor-pointer"
-          >
-            Set Semua Nihil
-          </button>
-        </div>
-      </div>
-
-      {/* Success Notification */}
-      {isSuccessToast && (
-        <div className="mb-4 p-3 rounded bg-emerald-50 border border-emerald-200 flex items-center gap-2 text-xs text-emerald-800 font-medium animate-in fade-in duration-150">
-          <Check className="w-4 h-4 shrink-0 text-emerald-600" />
-          <span>✓ Laporan rekap hari {currentDay} berhasil disimpan & diperbarui di preview reminder!</span>
-        </div>
-      )}
-
-      {/* Multi-Subject Form Stack */}
-      <form onSubmit={handleSaveAll} className="space-y-3.5">
-        {subjectStates.map((subj, index) => {
-          return (
-            <div
-              key={subj.subjectName}
-              className={`rounded-lg border transition-all duration-150 p-3.5 sm:p-4 ${
-                subj.hasTask
-                  ? "bg-white border-blue-300 ring-1 ring-blue-100"
-                  : "bg-gray-50/70 border-gray-200 opacity-80"
-              }`}
-            >
-              {/* Card Header: Subject Name & Toggle */}
-              <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-gray-100">
-                <div className="flex items-center gap-2">
-                  <span className="w-6 h-6 rounded bg-blue-600 text-white font-mono font-bold text-xs flex items-center justify-center">
-                    {index + 1}
-                  </span>
-                  <span className="text-sm font-bold text-gray-900 tracking-tight">
-                    {subj.subjectName}
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleToggleSubject(index)}
-                    className={`px-3 py-1 rounded text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 ${
-                      subj.hasTask
-                        ? "bg-blue-600 text-white"
-                        : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                  {isTomorrow && (
+                    <span
+                      className={`inline-block text-[9px] font-mono uppercase font-extrabold px-1.5 rounded-full mb-0.5 ${
+                        isSelected
+                          ? "bg-[#FF5A36] text-[#FFFDF9]"
+                          : "bg-[#C8F560] text-[#141413] border border-[#141413]"
+                      }`}
+                    >
+                      ✦ BESOK
+                    </span>
+                  )}
+                  <div className="text-xs sm:text-sm font-extrabold uppercase tracking-tight">
+                    {day}
+                  </div>
+                  <div
+                    className={`font-mono text-[10px] font-bold mt-0.5 ${
+                      isSelected ? "text-[#FFFDF9]/90" : "text-[#141413]/70"
                     }`}
                   >
-                    {subj.hasTask ? (
-                      <>
-                        <Check className="w-3.5 h-3.5 stroke-[2.5]" />
-                        <span>Ada Tugas</span>
-                      </>
-                    ) : (
-                      <span>— Nihil (Tidak Ada Tugas)</span>
-                    )}
-                  </button>
-                </div>
+                    {activeInDay > 0
+                      ? `${activeInDay} tugas`
+                      : `${subjectsOfDay.length} mapel`}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* 2. KARTU DAFTAR MAPEL INTERAKTIF (WARM STUDIO WHITE #FFFDF9 + MULTI-ACCENT ZINE TAGS) */}
+      <div className="bg-[#FFFDF9] neo-card overflow-hidden">
+        {/* Top Checkerboard + Header Bar */}
+        <div className="h-2.5 w-full bg-checkerboard border-b-2 border-[#141413]" />
+
+        <div className="p-4 sm:p-5">
+          <div className="flex flex-wrap items-center justify-between gap-2 pb-4 mb-4 border-b-2 border-[#141413]">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="px-2 py-0.5 bg-[#141413] text-[#FFFDF9] font-mono text-[10px] font-bold rounded">
+                  LOG//MAPEL
+                </span>
+                <h3 className="text-base sm:text-lg font-extrabold uppercase tracking-tight text-[#141413]">
+                  DAFTAR MAPEL HARI {selectedDay}
+                </h3>
               </div>
+              <p className="text-xs font-medium text-[#141413]/80 mt-1">
+                Klik <span className="font-bold underline decoration-[#FF5A36]">+ Tambah Tugas</span> untuk mengisi poin tugas, atau{" "}
+                <span className="font-bold">Selesai / Kosongkan</span> jika sudah lewat.
+              </p>
+            </div>
 
-              {/* Form Inputs (Visible if hasTask is true) */}
-              {subj.hasTask ? (
-                <div className="mt-3 space-y-3">
-                  {/* Rincian Tugas */}
-                  <div>
-                    <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1">
-                      Rincian Tugas {subj.subjectName}:
-                    </label>
-                    <textarea
-                      rows={2}
-                      value={subj.details}
-                      onChange={(e) =>
-                        handleFieldChange(index, "details", e.target.value)
-                      }
-                      placeholder={`Tuliskan instruksi tugas untuk ${subj.subjectName}, link materi, atau soal buku paket...`}
-                      className="w-full bg-white border border-gray-300 rounded px-3 py-2 text-xs text-gray-900 focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600 transition-colors resize-y font-sans"
-                    />
+            {/* Decorative Zig-Zag SVG + Clear Day Action */}
+            <div className="flex items-center gap-3">
+              <svg
+                width="48"
+                height="12"
+                viewBox="0 0 48 12"
+                fill="none"
+                className="hidden sm:block text-[#141413]"
+                aria-hidden="true"
+              >
+                <polyline
+                  points="0,10 6,2 12,10 18,2 24,10 30,2 36,10 42,2 48,10"
+                  stroke="currentColor"
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
 
-                    {/* Quick helper pills for this subject */}
-                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[10px]">
-                      <span className="text-gray-500 font-medium">Template:</span>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          handleApplyTemplate(
-                            index,
-                            "Upload file laporan (format PDF) ke MyLms.",
-                            "MyLms"
-                          )
-                        }
-                        className="px-2 py-0.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded border border-blue-200 transition-colors font-medium cursor-pointer"
-                      >
-                        + MyLms PDF
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          handleApplyTemplate(
-                            index,
-                            "Kerjakan di buku tulis tugas, kumpulkan di meja guru sebelum KBM.",
-                            "Buku Tulis"
-                          )
-                        }
-                        className="px-2 py-0.5 bg-amber-50 hover:bg-amber-100 text-amber-800 rounded border border-amber-200 transition-colors font-medium cursor-pointer"
-                      >
-                        + Buku Tulis
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          handleApplyTemplate(
-                            index,
-                            "Mengerjakan latihan soal uji kompetensi Hal. ... No. 1-10.",
-                            "Buku Tulis"
-                          )
-                        }
-                        className="px-2 py-0.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded border border-gray-300 transition-colors font-medium cursor-pointer"
-                      >
-                        + Latihan Soal
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Options row: Media, Deadline, Kategori */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1 text-xs">
-                    {/* Media Pengumpulan */}
-                    <div>
-                      <label className="block text-[10px] font-bold text-gray-600 uppercase mb-1">
-                        Media Pengumpulan
-                      </label>
-                      <select
-                        value={subj.submissionMethod}
-                        onChange={(e) =>
-                          handleFieldChange(
-                            index,
-                            "submissionMethod",
-                            e.target.value as SubmissionMethod
-                          )
-                        }
-                        className="w-full bg-white border border-gray-300 rounded px-2.5 py-1.5 text-xs font-bold text-gray-900 focus:outline-none focus:border-blue-600 cursor-pointer"
-                      >
-                        {SUBMISSION_METHODS.map((m) => (
-                          <option key={m} value={m}>
-                            {m === "MyLms" ? "🌐 MyLms" : "📖 Buku Tulis"}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* Batas Waktu / Jam Deadline */}
-                    <div>
-                      <label className="block text-[10px] font-bold text-gray-600 uppercase mb-1">
-                        Deadline Waktu
-                      </label>
-                      <input
-                        type="text"
-                        value={subj.deadlineTime}
-                        onChange={(e) =>
-                          handleFieldChange(index, "deadlineTime", e.target.value)
-                        }
-                        placeholder="Contoh: 23.59 WIB, 07.15 WIB"
-                        className="w-full bg-white border border-gray-300 rounded px-2.5 py-1.5 text-xs font-medium text-gray-900 focus:outline-none focus:border-blue-600"
-                      />
-                    </div>
-
-                    {/* Kategori Tagihan */}
-                    <div>
-                      <label className="block text-[10px] font-bold text-gray-600 uppercase mb-1">
-                        Kategori
-                      </label>
-                      <select
-                        value={subj.taskType}
-                        onChange={(e) =>
-                          handleFieldChange(
-                            index,
-                            "taskType",
-                            e.target.value as TaskType
-                          )
-                        }
-                        className="w-full bg-white border border-gray-300 rounded px-2.5 py-1.5 text-xs font-medium text-gray-800 focus:outline-none focus:border-blue-600 cursor-pointer"
-                      >
-                        {TASK_TYPES.map((t) => (
-                          <option key={t} value={t}>
-                            {t}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="mt-2 text-[11px] text-gray-400 italic">
-                  Tidak ada tagihan tugas untuk mapel {subj.subjectName} pada hari ini.
-                </div>
+              {activeCountToday > 0 && (
+                <button
+                  type="button"
+                  onClick={() => onClearAllDaySubjects(selectedDay)}
+                  className="bg-[#FFFDF9] hover:bg-[#FF7A59] text-[#141413] font-bold text-xs px-3 py-1.5 neo-btn-sm cursor-pointer flex items-center gap-1.5"
+                >
+                  <RotateCcw className="w-3.5 h-3.5 stroke-[2.4]" />
+                  <span>Kosongkan Hari {selectedDay}</span>
+                </button>
               )}
             </div>
-          );
-        })}
+          </div>
 
-        {/* Submit Button to Save All Subjects in 1 Click */}
-        <div className="pt-3">
-          <button
-            type="submit"
-            className="w-full bg-[#2563EB] hover:bg-[#1D4ED8] active:bg-[#1E40AF] text-white font-bold px-4 py-3 rounded-lg text-sm flex items-center justify-center gap-2 transition-colors duration-150 cursor-pointer shadow-none"
-          >
-            <Save className="w-4 h-4 stroke-[2.5]" />
-            <span>Simpan Rekap Hari {currentDay} ({activeSubjectsCount} Mapel Aktif)</span>
-          </button>
-          <p className="text-[11px] text-center text-gray-500 mt-2">
-            Perubahan langsung memperbarui seluruh format reminder WhatsApp di panel kanan
-          </p>
+          <div className="space-y-3.5">
+            {daySubjects.map((subjectName, index) => {
+              const key = normalizeSubjectKey(subjectName);
+              const draft = drafts[key];
+              const isActive = isSubjectDraftActiveForDay(draft, selectedDay);
+              const isExpanded = isActive || !!expandedKeys[key];
+              const subjectDays = getDaysForSubject(subjectName, schedule);
+              const isMultiDaySubject = subjectDays.length > 1;
+              const accent =
+                SUBJECT_ACCENT_PALETTE[index % SUBJECT_ACCENT_PALETTE.length];
+
+              const points = draft?.points || [];
+              const links = draft?.links || [];
+
+              return (
+                <div
+                  key={`${selectedDay}-${subjectName}-${index}`}
+                  className={`neo-card-sm overflow-hidden transition-colors relative ${
+                    isExpanded ? "bg-[#FFFDF9]" : "bg-[#F3EFE6]/60"
+                  }`}
+                >
+                  {/* Left Color Accent Ribbon Bar */}
+                  <div
+                    className={`absolute left-0 top-0 bottom-0 w-2.5 border-r-2 border-[#141413] ${accent.ribbon}`}
+                    aria-hidden="true"
+                  />
+
+                  <div className="pl-5 pr-3.5 py-3.5 sm:pr-4 sm:py-4">
+                    {/* Header Kartu Mapel */}
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2.5">
+                        <span
+                          className={`w-8 h-8 ${accent.bg} border-2 border-[#141413] rounded-lg font-mono text-xs font-extrabold flex items-center justify-center shadow-[2px_2px_0px_#141413] shrink-0 -rotate-2`}
+                        >
+                          0{index + 1}
+                        </span>
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h4 className="text-sm sm:text-base font-extrabold uppercase tracking-tight text-[#141413]">
+                              {subjectName}
+                            </h4>
+                            {isMultiDaySubject && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-[#DDD6FE] border-2 border-[#141413] rounded-full text-[10px] font-mono font-bold text-[#141413]">
+                                <Repeat className="w-2.5 h-2.5 stroke-[2.5]" />
+                                {subjectDays.join(" • ")}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Status jika belum ada tugas */}
+                          {!isExpanded && (
+                            <p className="font-mono text-xs font-bold text-[#141413]/60 mt-0.5">
+                              Tidak ada tugas (- -)
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Tombol Aksi Cepat di Kanan Kartu */}
+                      <div className="flex items-center gap-2">
+                        {!isExpanded ? (
+                          <button
+                            type="button"
+                            onClick={() => toggleExpandSubject(subjectName)}
+                            className={`${accent.bg} hover:opacity-90 text-[#141413] font-extrabold text-xs px-3.5 py-1.5 neo-btn-sm cursor-pointer flex items-center gap-1`}
+                          >
+                            <Plus className="w-3.5 h-3.5 stroke-[2.8]" />
+                            <span>Tambah Tugas</span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleClearSingleSubject(subjectName)}
+                            className="bg-[#F3EFE6] hover:bg-[#FF7A59] text-[#141413] font-bold text-xs px-3 py-1.5 neo-btn-sm cursor-pointer flex items-center gap-1.5"
+                            title="Reset mapel ini kembali menjadi - -"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5 stroke-[2.4]" />
+                            <span>Selesai / Kosongkan</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Form Input Inline Cepat */}
+                    {isExpanded && (
+                      <div className="mt-3.5 pt-3 border-t-2 border-dashed border-[#141413] space-y-3">
+                        {/* Opsi Pertemuan Berikutnya jika mapel muncul di >1 hari */}
+                        {isMultiDaySubject && draft && (
+                          <div className="flex flex-wrap items-center justify-between gap-2 bg-[#F3EFE6] border-2 border-[#141413] rounded-lg px-3 py-2 text-xs">
+                            <span className="font-bold text-[#141413]">
+                              Tampilkan tugas <span className="font-extrabold">{subjectName}</span> di:
+                            </span>
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleTargetDayChange(subjectName, "ALL")
+                                }
+                                className={`px-2.5 py-1 rounded-full border-2 border-[#141413] font-bold text-[11px] cursor-pointer ${
+                                  draft.targetDay === "ALL"
+                                    ? "bg-[#C8F560] text-[#141413] shadow-[2px_2px_0px_#141413]"
+                                    : "bg-[#FFFDF9] text-[#141413]/70"
+                                }`}
+                              >
+                                Semua Pertemuan ({subjectDays.join("/")})
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleTargetDayChange(subjectName, selectedDay)
+                                }
+                                className={`px-2.5 py-1 rounded-full border-2 border-[#141413] font-bold text-[11px] cursor-pointer ${
+                                  draft.targetDay === selectedDay
+                                    ? "bg-[#C8F560] text-[#141413] shadow-[2px_2px_0px_#141413]"
+                                    : "bg-[#FFFDF9] text-[#141413]/70"
+                                }`}
+                              >
+                                Hanya {selectedDay}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Daftar Input Poin Tugas */}
+                        <div className="space-y-2">
+                          <label className="block font-mono text-[11px] font-bold uppercase tracking-wider text-[#141413]">
+                            POIN TUGAS ({points.length}):
+                          </label>
+
+                          {points.map((pt, ptIdx) => (
+                            <div key={pt.id} className="flex items-start gap-2">
+                              <span
+                                className={`font-mono text-xs font-extrabold ${accent.bg} border-2 border-[#141413] rounded-md px-2 py-2 shrink-0`}
+                              >
+                                • -
+                              </span>
+                              <input
+                                type="text"
+                                value={pt.text}
+                                onChange={(e) =>
+                                  handlePointChange(
+                                    subjectName,
+                                    pt.id,
+                                    e.target.value
+                                  )
+                                }
+                                placeholder={`Ketik poin tugas ke-${ptIdx + 1} untuk ${subjectName}...`}
+                                className="flex-1 neo-input px-3 py-2 text-xs sm:text-sm font-semibold"
+                              />
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleRemovePoint(subjectName, pt.id)
+                                }
+                                className="p-2 bg-[#F3EFE6] hover:bg-[#FF7A59] border-2 border-[#141413] rounded-lg text-[#141413] cursor-pointer shrink-0"
+                                title="Hapus poin ini"
+                              >
+                                <Trash2 className="w-4 h-4 stroke-[2.2]" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Daftar Input Link Opsional (Misal: Link Notion) */}
+                        {(links.length > 0 || openLinkKeys[key]) && (
+                          <div className="space-y-2 pt-1">
+                            <label className="block font-mono text-[11px] font-bold uppercase tracking-wider text-[#141413]">
+                              SISIPAN LINK OPSIONAL (NOTION / GDRIVE / LMS):
+                            </label>
+                            {links.map((lnk) => (
+                              <div
+                                key={lnk.id}
+                                className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-[#F3EFE6] p-2 border-2 border-[#141413] rounded-lg"
+                              >
+                                <input
+                                  type="text"
+                                  value={lnk.label}
+                                  onChange={(e) =>
+                                    handleLinkChange(
+                                      subjectName,
+                                      lnk.id,
+                                      "label",
+                                      e.target.value
+                                    )
+                                  }
+                                  placeholder="Label (cth: Link Notion)"
+                                  className="sm:w-36 neo-input px-2.5 py-1.5 text-xs font-bold"
+                                />
+                                <input
+                                  type="url"
+                                  value={lnk.url}
+                                  onChange={(e) =>
+                                    handleLinkChange(
+                                      subjectName,
+                                      lnk.id,
+                                      "url",
+                                      e.target.value
+                                    )
+                                  }
+                                  placeholder="https://..."
+                                  className="flex-1 neo-input px-2.5 py-1.5 font-mono text-xs font-medium"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleRemoveLink(subjectName, lnk.id)
+                                  }
+                                  className="p-1.5 bg-[#FFFDF9] hover:bg-[#FF7A59] border-2 border-[#141413] rounded text-[#141413] cursor-pointer self-end sm:self-auto"
+                                  title="Hapus link"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5 stroke-[2.2]" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Tombol Tambah Poin & Tambah Link */}
+                        <div className="flex flex-wrap items-center gap-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => handleAddPoint(subjectName)}
+                            className="bg-[#C8F560] hover:bg-[#b8e84b] text-[#141413] font-bold text-xs px-3 py-1.5 neo-btn-sm cursor-pointer flex items-center gap-1"
+                          >
+                            <Plus className="w-3.5 h-3.5 stroke-[2.6]" />
+                            <span>Tambah Poin Tugas</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleAddLink(subjectName)}
+                            className="bg-[#DDD6FE] hover:bg-[#C4B5FD] text-[#141413] font-bold text-xs px-3 py-1.5 neo-btn-sm cursor-pointer flex items-center gap-1.5"
+                          >
+                            <LinkIcon className="w-3.5 h-3.5 stroke-[2.4]" />
+                            <span>+ Sisipkan Link (Notion/URL)</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
-      </form>
+      </div>
     </div>
   );
 };

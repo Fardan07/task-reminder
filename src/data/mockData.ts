@@ -1,292 +1,198 @@
-import { SubjectSchedule, TaskItem, DayOfWeek } from "@/types/task";
+import {
+  ClassConfig,
+  DayOfWeek,
+  SubjectDraft,
+  WeeklyScheduleMap,
+} from "@/types/task";
 
-export const WEEKLY_TIMETABLE: Record<DayOfWeek, string[]> = {
-  Senin: ["PKN-SEJARAH", "KA-2", "S.IOT", "BHS.INGGRIS"],
-  Selasa: ["B.INDO", "PABP", "MATEMATIKA", "PAaS"],
-  Rabu: ["PEMROGRAMAN 3", "SKJ-2", "BK", "PJOK"],
-  Kamis: ["MATEMATIKA", "KIK", "KA-2", "S.IOT", "B.JAWA"],
-  Jumat: ["INKUBASI"],
-  Sabtu: [],
-};
-
-export const DEFAULT_DAY_DATES: Record<DayOfWeek, string> = {
-  Senin: "Senin, 31 Agustus 2026",
-  Selasa: "Selasa, 1 September 2026",
-  Rabu: "Rabu, 26 Agustus 2026",
-  Kamis: "Kamis, 27 Agustus 2026",
-  Jumat: "Jumat, 28 Agustus 2026",
-  Sabtu: "Sabtu, 29 Agustus 2026",
-};
-
-export const SUBJECT_SCHEDULES: SubjectSchedule[] = [
-  // --- SENIN ---
-  {
-    id: "sub-pkn-sej",
-    name: "PKN-SEJARAH",
-    defaultDay: "Senin",
-    availableDates: [
-      { id: "pkn-d1", day: "Senin", dateFormatted: "Senin, 31 Agustus 2026" },
-      { id: "pkn-d2", day: "Senin", dateFormatted: "Senin, 7 September 2026" },
-    ],
-  },
-  {
-    id: "sub-ka2",
-    name: "KA-2",
-    defaultDay: "Kamis",
-    availableDates: [
-      { id: "ka2-d1", day: "Kamis", dateFormatted: "Kamis, 27 Agustus 2026" },
-      { id: "ka2-d2", day: "Senin", dateFormatted: "Senin, 31 Agustus 2026" },
-      { id: "ka2-d3", day: "Kamis", dateFormatted: "Kamis, 3 September 2026" },
-    ],
-  },
-  {
-    id: "sub-siot",
-    name: "S.IOT",
-    defaultDay: "Kamis",
-    availableDates: [
-      { id: "siot-d1", day: "Kamis", dateFormatted: "Kamis, 27 Agustus 2026" },
-      { id: "siot-d2", day: "Senin", dateFormatted: "Senin, 31 Agustus 2026" },
-      { id: "siot-d3", day: "Kamis", dateFormatted: "Kamis, 3 September 2026" },
-    ],
-  },
-  {
-    id: "sub-bhs-inggris",
-    name: "BHS.INGGRIS",
-    defaultDay: "Senin",
-    availableDates: [
-      { id: "bing-d1", day: "Senin", dateFormatted: "Senin, 31 Agustus 2026" },
-      { id: "bing-d2", day: "Senin", dateFormatted: "Senin, 7 September 2026" },
-    ],
-  },
-
-  // --- SELASA ---
-  {
-    id: "sub-bindo",
-    name: "B.INDO",
-    defaultDay: "Selasa",
-    availableDates: [
-      { id: "bindo-d1", day: "Selasa", dateFormatted: "Selasa, 1 September 2026" },
-      { id: "bindo-d2", day: "Selasa", dateFormatted: "Selasa, 8 September 2026" },
-    ],
-  },
-  {
-    id: "sub-pabp",
-    name: "PABP",
-    defaultDay: "Selasa",
-    availableDates: [
-      { id: "pabp-d1", day: "Selasa", dateFormatted: "Selasa, 1 September 2026" },
-      { id: "pabp-d2", day: "Selasa", dateFormatted: "Selasa, 8 September 2026" },
-    ],
-  },
-  {
-    id: "sub-mtk",
-    name: "MATEMATIKA",
-    defaultDay: "Kamis",
-    availableDates: [
-      { id: "mtk-d1", day: "Kamis", dateFormatted: "Kamis, 27 Agustus 2026" },
-      { id: "mtk-d2", day: "Selasa", dateFormatted: "Selasa, 1 September 2026" },
-      { id: "mtk-d3", day: "Kamis", dateFormatted: "Kamis, 3 September 2026" },
-    ],
-  },
-  {
-    id: "sub-paas",
-    name: "PAaS",
-    defaultDay: "Selasa",
-    availableDates: [
-      { id: "paas-d1", day: "Selasa", dateFormatted: "Selasa, 1 September 2026" },
-      { id: "paas-d2", day: "Selasa", dateFormatted: "Selasa, 8 September 2026" },
-    ],
-  },
-
-  // --- RABU ---
-  {
-    id: "sub-pem3",
-    name: "PEMROGRAMAN 3",
-    defaultDay: "Rabu",
-    availableDates: [
-      { id: "pem3-d1", day: "Rabu", dateFormatted: "Rabu, 26 Agustus 2026" },
-      { id: "pem3-d2", day: "Rabu", dateFormatted: "Rabu, 2 September 2026" },
-    ],
-  },
-  {
-    id: "sub-skj2",
-    name: "SKJ-2",
-    defaultDay: "Rabu",
-    availableDates: [
-      { id: "skj2-d1", day: "Rabu", dateFormatted: "Rabu, 26 Agustus 2026" },
-      { id: "skj2-d2", day: "Rabu", dateFormatted: "Rabu, 2 September 2026" },
-    ],
-  },
-  {
-    id: "sub-bk",
-    name: "BK",
-    defaultDay: "Rabu",
-    availableDates: [
-      { id: "bk-d1", day: "Rabu", dateFormatted: "Rabu, 26 Agustus 2026" },
-      { id: "bk-d2", day: "Rabu", dateFormatted: "Rabu, 2 September 2026" },
-    ],
-  },
-  {
-    id: "sub-pjok",
-    name: "PJOK",
-    defaultDay: "Rabu",
-    availableDates: [
-      { id: "pjok-d1", day: "Rabu", dateFormatted: "Rabu, 26 Agustus 2026" },
-      { id: "pjok-d2", day: "Rabu", dateFormatted: "Rabu, 2 September 2026" },
-    ],
-  },
-
-  // --- KAMIS ---
-  {
-    id: "sub-kik",
-    name: "KIK",
-    defaultDay: "Kamis",
-    availableDates: [
-      { id: "kik-d1", day: "Kamis", dateFormatted: "Kamis, 27 Agustus 2026" },
-      { id: "kik-d2", day: "Kamis", dateFormatted: "Kamis, 3 September 2026" },
-    ],
-  },
-  {
-    id: "sub-bjawa",
-    name: "B.JAWA",
-    defaultDay: "Kamis",
-    availableDates: [
-      { id: "bjawa-d1", day: "Kamis", dateFormatted: "Kamis, 27 Agustus 2026" },
-      { id: "bjawa-d2", day: "Kamis", dateFormatted: "Kamis, 3 September 2026" },
-    ],
-  },
-
-  // --- JUMAT ---
-  {
-    id: "sub-inkubasi",
-    name: "INKUBASI",
-    defaultDay: "Jumat",
-    availableDates: [
-      { id: "ink-d1", day: "Jumat", dateFormatted: "Jumat, 28 Agustus 2026" },
-      { id: "ink-d2", day: "Jumat", dateFormatted: "Jumat, 4 September 2026" },
-    ],
-  },
+export const DAYS_OF_WEEK: DayOfWeek[] = [
+  "SENIN",
+  "SELASA",
+  "RABU",
+  "KAMIS",
+  "JUMAT",
 ];
 
-export const INITIAL_TASKS: TaskItem[] = [
-  // --- RABU (PEMROGRAMAN 3, SKJ-2, BK, PJOK) ---
-  {
-    id: "task-rabu-pem3",
-    subjectId: "sub-pem3",
-    subjectName: "PEMROGRAMAN 3",
-    day: "Rabu",
-    dueDate: "Rabu, 26 Agustus 2026",
-    details: "Upload dokumen API endpoint dan file source code modul autentikasi JWT ke MyLms.",
-    taskType: "Praktikum Lab",
-    deadlineTime: "23.59 WIB",
-    submissionMethod: "MyLms",
-    isCompleted: false,
-    createdAt: "2026-08-25T10:00:00Z",
-  },
-  {
-    id: "task-rabu-skj2",
-    subjectId: "sub-skj2",
-    subjectName: "SKJ-2",
-    day: "Rabu",
-    dueDate: "Rabu, 26 Agustus 2026",
-    details: "Laporan konfigurasi dynamic routing OSPF Multi-Area Packet Tracer (format PDF di MyLms).",
-    taskType: "Praktikum Lab",
-    deadlineTime: "23.59 WIB",
-    submissionMethod: "MyLms",
-    isCompleted: false,
-    createdAt: "2026-08-25T10:30:00Z",
-  },
-  {
-    id: "task-rabu-bk",
-    subjectId: "sub-bk",
-    subjectName: "BK",
-    day: "Rabu",
-    dueDate: "Rabu, 26 Agustus 2026",
-    details: "Mencatat lembar refleksi pemetaan minat karir industri IT di buku catatan.",
-    taskType: "Tugas Individu",
-    deadlineTime: "Jam Pelajaran",
-    submissionMethod: "Buku Tulis",
-    isCompleted: false,
-    createdAt: "2026-08-25T11:00:00Z",
-  },
-  {
-    id: "task-rabu-pjok",
-    subjectId: "sub-pjok",
-    subjectName: "PJOK",
-    day: "Rabu",
-    dueDate: "Rabu, 26 Agustus 2026",
-    details: "Membawa seragam olahraga lengkap dan tugas ringkasan kebugaran jasmani di buku tulis.",
-    taskType: "PR / Latihan",
-    deadlineTime: "07.15 WIB",
-    submissionMethod: "Buku Tulis",
-    isCompleted: false,
-    createdAt: "2026-08-25T11:30:00Z",
-  },
+export const DEFAULT_WEEKLY_SCHEDULE: WeeklyScheduleMap = {
+  SENIN: ["PKN-SEJARAH", "KA-2", "S.IOT", "BHS.INGGRIS"],
+  SELASA: ["B.INDO", "MATEMATIKA", "KA - 2", "PAaS"],
+  RABU: ["PEMOGRAMAN 3", "SKJ-2", "BK", "PJOK"],
+  KAMIS: ["MATEMATIKA", "KIK", "PABP", "S.IOT", "B.JAWA"],
+  JUMAT: ["INKUBASI"],
+};
 
-  // --- KAMIS (MATEMATIKA, KIK, KA-2, S.IOT, B.JAWA) ---
-  {
-    id: "task-kamis-mtk",
-    subjectId: "sub-mtk",
-    subjectName: "MATEMATIKA",
-    day: "Kamis",
-    dueDate: "Kamis, 27 Agustus 2026",
-    details: "Mengerjakan Latihan Uji Kompetensi Hal. 52 No. 1 - 10 di buku tugas.",
-    taskType: "PR / Latihan",
-    deadlineTime: "07.15 WIB (Sebelum KBM)",
-    submissionMethod: "Buku Tulis",
-    isCompleted: false,
-    createdAt: "2026-08-25T14:30:00Z",
+export const DEFAULT_CLASS_CONFIG: ClassConfig = {
+  className: "XII SIJA 1",
+  schedule: DEFAULT_WEEKLY_SCHEDULE,
+};
+
+/**
+ * Normalisasi nama mapel menjadi key unik (contoh: "KA - 2" dan "KA-2" -> "KA-2")
+ */
+export function normalizeSubjectKey(name: string): string {
+  return name
+    .trim()
+    .replace(/\s*-\s*/g, "-")
+    .replace(/\s+/g, " ")
+    .toUpperCase();
+}
+
+/**
+ * Mencari daftar hari di mana suatu mapel dijadwalkan
+ */
+export function getDaysForSubject(
+  subjectName: string,
+  schedule: WeeklyScheduleMap
+): DayOfWeek[] {
+  const key = normalizeSubjectKey(subjectName);
+  return DAYS_OF_WEEK.filter((day) =>
+    (schedule[day] || []).some((s) => normalizeSubjectKey(s) === key)
+  );
+}
+
+/**
+ * Preset awal draft tugas sesuai contoh referensi XII SIJA 1
+ */
+export const INITIAL_SUBJECT_DRAFTS: Record<string, SubjectDraft> = {
+  "KA-2": {
+    subjectKey: "KA-2",
+    subjectName: "KA - 2",
+    points: [
+      {
+        id: "pt-ka2-1",
+        text: "Menyelesaikan LKPD Decision Tree",
+      },
+    ],
+    links: [],
+    targetDay: "ALL",
+    updatedAt: "2026-11-02T18:00:00.000Z",
   },
-  {
-    id: "task-kamis-kik",
-    subjectId: "sub-kik",
-    subjectName: "KIK",
-    day: "Kamis",
-    dueDate: "Kamis, 27 Agustus 2026",
-    details: "Membuat ringkasan SOP industri IT dan komunikasi kerja di buku catatan.",
-    taskType: "Tugas Individu",
-    deadlineTime: "Jam Pelajaran",
-    submissionMethod: "Buku Tulis",
-    isCompleted: false,
-    createdAt: "2026-08-25T14:45:00Z",
+  PAAS: {
+    subjectKey: "PAAS",
+    subjectName: "PAaS",
+    points: [
+      {
+        id: "pt-paas-1",
+        text: "Menyelesaikan Tugas Integrasi Frontend + Express + Cloudflare D1 (Minggu ke - 7) lalu di presentasikan ke Pak Novra",
+      },
+    ],
+    links: [
+      {
+        id: "lnk-paas-1",
+        label: "Link Notion",
+        url: "https://rumbling-tote-100.notion.site/Platform-as-a-Service-PaaS-26-27-3db22cfd33d28044a2fcd8613e0809ba?p=3f722cfd33d281698e7ee3d71d36d5cf&pm=s",
+      },
+    ],
+    targetDay: "ALL",
+    updatedAt: "2026-11-02T18:00:00.000Z",
   },
-  {
-    id: "task-kamis-ka2",
-    subjectId: "sub-ka2",
-    subjectName: "KA-2",
-    day: "Kamis",
-    dueDate: "Kamis, 27 Agustus 2026",
-    details: "Upload laporan praktikum SQL Injection dan mitigasi prepared statements (PDF) ke MyLms.",
-    taskType: "Praktikum Lab",
-    deadlineTime: "23.59 WIB",
-    submissionMethod: "MyLms",
-    isCompleted: false,
-    createdAt: "2026-08-25T15:00:00Z",
-  },
-  {
-    id: "task-kamis-siot",
-    subjectId: "sub-siot",
-    subjectName: "S.IOT",
-    day: "Kamis",
-    dueDate: "Kamis, 27 Agustus 2026",
-    details: "Submit jobsheet sensor ESP32 telemetry dan screenshot serial monitor ke MyLms.",
-    taskType: "Praktikum Lab",
-    deadlineTime: "23.59 WIB",
-    submissionMethod: "MyLms",
-    isCompleted: false,
-    createdAt: "2026-08-25T16:20:00Z",
-  },
-  {
-    id: "task-kamis-bjawa",
-    subjectId: "sub-bjawa",
-    subjectName: "B.JAWA",
-    day: "Kamis",
-    dueDate: "Kamis, 27 Agustus 2026",
-    details: "Nulis 2 pada tembang Kinanthi lan tegesipun ing buku tugas.",
-    taskType: "Tugas Individu",
-    deadlineTime: "Jam Pelajaran",
-    submissionMethod: "Buku Tulis",
-    isCompleted: false,
-    createdAt: "2026-08-25T16:45:00Z",
-  },
+};
+
+const INDONESIAN_MONTHS = [
+  "JANUARI",
+  "FEBRUARI",
+  "MARET",
+  "APRIL",
+  "MEI",
+  "JUNI",
+  "JULI",
+  "AGUSTUS",
+  "SEPTEMBER",
+  "OKTOBER",
+  "NOVEMBER",
+  "DESEMBER",
 ];
+
+export function toLocalIsoDate(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+/**
+ * Menghitung Hari Besok secara cerdas:
+ * - Senin (1) -> Selasa (+1)
+ * - Selasa (2) -> Rabu (+1)
+ * - Rabu (3) -> Kamis (+1)
+ * - Kamis (4) -> Jumat (+1)
+ * - Jumat (5) -> Senin minggu depan (+3)
+ * - Sabtu (6) -> Senin minggu depan (+2)
+ * - Minggu (0) -> Senin besok (+1)
+ */
+export function getSmartTargetDayAndDate(now: Date = new Date()): {
+  day: DayOfWeek;
+  isoDate: string;
+} {
+  const currentDayIndex = now.getDay(); // 0 = Minggu, 1 = Senin, ..., 6 = Sabtu
+  const targetDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  if (currentDayIndex === 5) {
+    // Jumat -> Senin (+3 hari)
+    targetDate.setDate(targetDate.getDate() + 3);
+    return { day: "SENIN", isoDate: toLocalIsoDate(targetDate) };
+  }
+  if (currentDayIndex === 6) {
+    // Sabtu -> Senin (+2 hari)
+    targetDate.setDate(targetDate.getDate() + 2);
+    return { day: "SENIN", isoDate: toLocalIsoDate(targetDate) };
+  }
+  if (currentDayIndex === 0) {
+    // Minggu -> Senin (+1 hari)
+    targetDate.setDate(targetDate.getDate() + 1);
+    return { day: "SENIN", isoDate: toLocalIsoDate(targetDate) };
+  }
+
+  // Senin s/d Kamis -> Hari berikutnya (+1 hari)
+  targetDate.setDate(targetDate.getDate() + 1);
+  const mapIndexToDay: Record<number, DayOfWeek> = {
+    1: "SENIN",
+    2: "SELASA",
+    3: "RABU",
+    4: "KAMIS",
+    5: "JUMAT",
+  };
+  const nextDay = mapIndexToDay[targetDate.getDay()] || "SENIN";
+  return { day: nextDay, isoDate: toLocalIsoDate(targetDate) };
+}
+
+/**
+ * Ketika user klik tab hari tertentu (SENIN..JUMAT), cari tanggal terdekat untuk hari tersebut
+ */
+export function getUpcomingDateForDay(
+  targetDay: DayOfWeek,
+  now: Date = new Date()
+): string {
+  const dayToJsIndex: Record<DayOfWeek, number> = {
+    SENIN: 1,
+    SELASA: 2,
+    RABU: 3,
+    KAMIS: 4,
+    JUMAT: 5,
+  };
+  const targetIdx = dayToJsIndex[targetDay];
+  const currentIdx = now.getDay();
+  const date = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  let diff = targetIdx - currentIdx;
+  if (diff <= 0) {
+    diff += 7;
+  }
+  date.setDate(date.getDate() + diff);
+  return toLocalIsoDate(date);
+}
+
+/**
+ * Format YYYY-MM-DD menjadi "03 NOVEMBER 2026"
+ */
+export function formatDateUpperIndonesian(isoDate: string): string {
+  if (!isoDate) return "";
+  const parts = isoDate.split("-");
+  if (parts.length !== 3) return isoDate.toUpperCase();
+  const year = parseInt(parts[0], 10);
+  const monthIdx = parseInt(parts[1], 10) - 1;
+  const day = parts[2].padStart(2, "0");
+  const monthName = INDONESIAN_MONTHS[monthIdx] || "";
+  if (!monthName || isNaN(year)) return isoDate.toUpperCase();
+  return `${day} ${monthName} ${year}`;
+}

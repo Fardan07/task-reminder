@@ -1,99 +1,87 @@
-import { TaskItem, ReminderFormatStyle } from "@/types/task";
+import { DayOfWeek, SubjectDraft, WeeklyScheduleMap } from "@/types/task";
+import {
+  formatDateUpperIndonesian,
+  normalizeSubjectKey,
+} from "@/data/mockData";
 
+/**
+ * Mengecek apakah sebuah SubjectDraft aktif untuk hari tertentu
+ */
+export function isSubjectDraftActiveForDay(
+  draft: SubjectDraft | undefined,
+  day: DayOfWeek
+): boolean {
+  if (!draft) return false;
+  if (draft.targetDay !== "ALL" && draft.targetDay !== day) return false;
+  const validPoints = draft.points.filter((p) => p.text.trim().length > 0);
+  const validLinks = draft.links.filter((l) => l.url.trim().length > 0);
+  return validPoints.length > 0 || validLinks.length > 0;
+}
+
+/**
+ * Menghasilkan teks reminder WhatsApp sesuai format baku:
+ *
+ * *❗REMINDER TUGAS HARI SELASA 03 NOVEMBER 2026❗*
+ * *===============================================*
+ *
+ * ○ *B.INDO*
+ * - -
+ *
+ * ○ *MATEMATIKA*
+ * - -
+ *
+ * ○ *KA - 2*
+ *     • - Menyelesaikan LKPD Decision Tree
+ *
+ * ○ *PAaS*
+ *    • - Menyelesaikan Tugas Integrasi Frontend + Express + Cloudflare D1 (Minggu ke - 7) lalu di presentasikan ke Pak Novra
+ *    • - Link Notion : https://rumbling-tote-100.notion.site/...
+ */
 export function generateWhatsAppReminder(
-  tasks: TaskItem[],
-  selectedDay: string,
-  selectedDate: string,
-  style: ReminderFormatStyle = "standard",
-  includeCompleted: boolean = false
+  selectedDay: DayOfWeek,
+  isoDate: string,
+  schedule: WeeklyScheduleMap,
+  drafts: Record<string, SubjectDraft>
 ): string {
-  const activeTasks = includeCompleted
-    ? tasks
-    : tasks.filter((t) => !t.isCompleted);
+  const formattedDate = formatDateUpperIndonesian(isoDate);
+  const daySubjects = schedule[selectedDay] || [];
 
-  if (activeTasks.length === 0) {
-    return `❗ *REMINDER TUGAS HARI ${selectedDay.toUpperCase()}* ❗\n` +
-      `📅 *Tanggal:* ${selectedDate || "Semua Tanggal"}\n\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `🎉 *Tidak ada tagihan tugas aktif untuk hari ini!*\n` +
-      `Selamat beristirahat atau gunakan waktu untuk review materi. ✨\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
-      `— *Sekretaris Kelas XII SIJA 1* • _SIJAsisten_`;
-  }
+  const headerLine = formattedDate
+    ? `*❗REMINDER TUGAS HARI ${selectedDay.toUpperCase()} ${formattedDate}❗*`
+    : `*❗REMINDER TUGAS HARI ${selectedDay.toUpperCase()}❗*`;
+  const dividerLine = `*===============================================*`;
 
-  // Group tasks by subject
-  const tasksBySubject: Record<string, TaskItem[]> = {};
-  activeTasks.forEach((task) => {
-    const key = task.subjectName;
-    if (!tasksBySubject[key]) {
-      tasksBySubject[key] = [];
+  const subjectBlocks = daySubjects.map((subjectName) => {
+    const key = normalizeSubjectKey(subjectName);
+    const draft = drafts[key];
+    const isActive = isSubjectDraftActiveForDay(draft, selectedDay);
+
+    if (!isActive || !draft) {
+      return `○ *${subjectName}*\n- -`;
     }
-    tasksBySubject[key].push(task);
+
+    const lines: string[] = [];
+    draft.points.forEach((pt) => {
+      const cleaned = pt.text.trim();
+      if (cleaned) {
+        lines.push(`    • - ${cleaned}`);
+      }
+    });
+
+    draft.links.forEach((lnk) => {
+      const url = lnk.url.trim();
+      const label = lnk.label.trim() || "Link";
+      if (url) {
+        lines.push(`    • - ${label} : ${url}`);
+      }
+    });
+
+    if (lines.length === 0) {
+      return `○ *${subjectName}*\n- -`;
+    }
+
+    return `○ *${subjectName}*\n${lines.join("\n")}`;
   });
 
-  const subjectNames = Object.keys(tasksBySubject);
-
-  if (style === "compact") {
-    let output = `⚡ *REMINDER TUGAS: ${selectedDay.toUpperCase()} (${selectedDate})* ⚡\n`;
-    output += `━━━━━━━━━━━━━━━━━━━━━\n`;
-    subjectNames.forEach((subj, idx) => {
-      output += `\n*${idx + 1}. ${subj.toUpperCase()}*\n`;
-      tasksBySubject[subj].forEach((t) => {
-        output += `  ▪ ${t.details}\n`;
-        output += `    🕒 _Deadline:_ ${t.deadlineTime} (${t.submissionMethod})\n`;
-      });
-    });
-    output += `\n━━━━━━━━━━━━━━━━━━━━━\n`;
-    output += `⚠️ _Total ${activeTasks.length} tugas. Jangan sampai terlambat kumpul!_\n`;
-    output += `— *XII SIJA 1*`;
-    return output;
-  }
-
-  if (style === "formal") {
-    let output = `📢 *PEMBERITAHUAN TUGAS KELAS XII SIJA 1*\n`;
-    output += `Hari/Tanggal : ${selectedDate || selectedDay}\n`;
-    output += `Status       : ${activeTasks.length} Tugas Perlu Diselesaikan\n`;
-    output += `═══════════════════════════════════\n\n`;
-
-    subjectNames.forEach((subj) => {
-      output += `【 *${subj.toUpperCase()}* 】\n`;
-      tasksBySubject[subj].forEach((t, i) => {
-        output += `  ${i + 1}. *Tipe:* ${t.taskType}\n`;
-        output += `     *Batas Waktu:* ${t.deadlineTime}\n`;
-        output += `     *Media Pengumpulan:* ${t.submissionMethod}\n`;
-        output += `     *Deskripsi Tugas:*\n     "${t.details}"\n\n`;
-      });
-    });
-
-    output += `═══════════════════════════════════\n`;
-    output += `📌 *Catatan Penting:*\n`;
-    output += `Mohon seluruh siswa/siswi XII SIJA 1 memperhatikan batas waktu yang ditentukan oleh guru pengampu. Disiplin adalah kunci profesionalisme di bidang IT.\n\n`;
-    output += `Salam hangat,\n`;
-    output += `*Pengurus & Sekretaris Kelas XII SIJA 1*`;
-    return output;
-  }
-
-  // Default: Standard WhatsApp Format with solid neo-tech clarity
-  let output = `❗ *REMINDER TUGAS HARI ${selectedDay.toUpperCase()}* ❗\n`;
-  if (selectedDate) {
-    output += `📅 *${selectedDate}*\n`;
-  }
-  output += `━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
-
-  subjectNames.forEach((subj) => {
-    output += `○ *${subj.toUpperCase()}*\n`;
-    tasksBySubject[subj].forEach((t) => {
-      output += `  • *Kategori:* ${t.taskType}\n`;
-      output += `  • *Deadline:* ${t.deadlineTime}\n`;
-      output += `  • *Pengumpulan:* ${t.submissionMethod}\n`;
-      output += `  • *Rincian:* ${t.details}\n\n`;
-    });
-  });
-
-  output += `━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-  output += `📌 *Catatan Sekretaris:*\n`;
-  output += `Harap menyelesaikan tugas tepat waktu dan konfirmasi ke sekretaris jika ada kendala. Terima kasih & semangat belajarnya! 🔥\n\n`;
-  output += `— *XII SIJA 1* • _SIJAsisten_`;
-
-  return output;
+  return `${headerLine}\n${dividerLine}\n\n${subjectBlocks.join("\n\n")}`;
 }

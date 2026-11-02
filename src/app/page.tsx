@@ -1,202 +1,285 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, {
+  useState,
+  useEffect,
+  useMemo,
+  useSyncExternalStore,
+} from "react";
 import { Header } from "@/components/Header";
 import { TaskFormPanel } from "@/components/TaskFormPanel";
 import { ReminderPreviewPanel } from "@/components/ReminderPreviewPanel";
 import { TaskListSection } from "@/components/TaskListSection";
-import { DayOfWeek, TaskItem } from "@/types/task";
-import { INITIAL_TASKS } from "@/data/mockData";
+import { ScheduleModal } from "@/components/ScheduleModal";
+import { ClassConfig, DayOfWeek, SubjectDraft } from "@/types/task";
 import {
-  Sparkles,
-  Info,
-  CalendarCheck,
-  CheckCircle,
-  HelpCircle,
-} from "lucide-react";
+  DEFAULT_CLASS_CONFIG,
+  INITIAL_SUBJECT_DRAFTS,
+  getSmartTargetDayAndDate,
+  getUpcomingDateForDay,
+  normalizeSubjectKey,
+} from "@/data/mockData";
+import { CheckCircle2 } from "lucide-react";
 
-const STORAGE_KEY = "sijasisten_tasks_data_v4";
+const STORAGE_DRAFTS_KEY = "sijasisten_neo_drafts_v1";
+const STORAGE_CONFIG_KEY = "sijasisten_neo_class_config_v1";
+
+const emptySubscribe = () => () => {};
+
+function loadInitialClassConfig(): ClassConfig {
+  if (typeof window === "undefined") return DEFAULT_CLASS_CONFIG;
+  try {
+    const saved = localStorage.getItem(STORAGE_CONFIG_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved) as ClassConfig;
+      if (parsed?.className && parsed?.schedule) {
+        return parsed;
+      }
+    }
+  } catch (e) {
+    console.error("Failed to load class config from localStorage:", e);
+  }
+  return DEFAULT_CLASS_CONFIG;
+}
+
+function loadInitialDrafts(): Record<string, SubjectDraft> {
+  if (typeof window === "undefined") return INITIAL_SUBJECT_DRAFTS;
+  try {
+    const saved = localStorage.getItem(STORAGE_DRAFTS_KEY);
+    if (saved) {
+      return JSON.parse(saved) as Record<string, SubjectDraft>;
+    }
+  } catch (e) {
+    console.error("Failed to load drafts from localStorage:", e);
+  }
+  return INITIAL_SUBJECT_DRAFTS;
+}
 
 export default function DashboardPage() {
-  const [tasks, setTasks] = useState<TaskItem[]>([]);
-  const [isLoaded, setIsLoaded] = useState(false);
-  const [selectedDayTab, setSelectedDayTab] = useState<string>("Rabu");
+  const isClient = useSyncExternalStore(
+    emptySubscribe,
+    () => true,
+    () => false
+  );
+
+  const smartTomorrow = useMemo(() => getSmartTargetDayAndDate(), []);
+
+  const [classConfig, setClassConfig] = useState<ClassConfig>(
+    loadInitialClassConfig
+  );
+  const [drafts, setDrafts] =
+    useState<Record<string, SubjectDraft>>(loadInitialDrafts);
+  const [selectedDay, setSelectedDay] = useState<DayOfWeek>(smartTomorrow.day);
+  const [selectedIsoDate, setSelectedIsoDate] = useState<string>(
+    smartTomorrow.isoDate
+  );
+  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Load initial data from localStorage
+  // Sync drafts to localStorage
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        setTasks(JSON.parse(saved));
-      } else {
-        setTasks(INITIAL_TASKS);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_TASKS));
-      }
-    } catch (e) {
-      console.error("Failed to read from localStorage", e);
-      setTasks(INITIAL_TASKS);
-    }
-    setIsLoaded(true);
-  }, []);
-
-  // Sync to localStorage
-  useEffect(() => {
-    if (isLoaded) {
+    if (isClient) {
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+        localStorage.setItem(STORAGE_DRAFTS_KEY, JSON.stringify(drafts));
       } catch (e) {
-        console.error("Failed to save to localStorage", e);
+        console.error("Failed to save drafts to localStorage:", e);
       }
     }
-  }, [tasks, isLoaded]);
+  }, [drafts, isClient]);
+
+  // Sync classConfig to localStorage
+  useEffect(() => {
+    if (isClient) {
+      try {
+        localStorage.setItem(STORAGE_CONFIG_KEY, JSON.stringify(classConfig));
+      } catch (e) {
+        console.error("Failed to save class config to localStorage:", e);
+      }
+    }
+  }, [classConfig, isClient]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => {
       setToastMessage(null);
-    }, 2800);
+    }, 2400);
   };
 
-  // Batch save / update all tasks for a day (Multi-Subject input)
-  const handleSaveDailyTasks = (
-    day: DayOfWeek,
-    dueDate: string,
-    newDailyTasks: TaskItem[]
-  ) => {
-    setTasks((prev) => {
-      // Remove previous tasks of this day
-      const otherDayTasks = prev.filter((t) => t.day !== day);
-      return [...newDailyTasks, ...otherDayTasks];
-    });
-
-    setSelectedDayTab(day);
-    showToast(
-      `✓ Berhasil menyimpan rekap hari ${day} (${newDailyTasks.length} mapel ada tugas)`
-    );
-  };
-
-  // Toggle completion
-  const handleToggleComplete = (taskId: string) => {
-    setTasks((prev) =>
-      prev.map((t) =>
-        t.id === taskId ? { ...t, isCompleted: !t.isCompleted } : t
-      )
-    );
-    showToast("Status tugas berhasil diperbarui.");
-  };
-
-  // Delete task
-  const handleDeleteTask = (taskId: string) => {
-    setTasks((prev) => prev.filter((t) => t.id !== taskId));
-    showToast("Tugas berhasil dihapus dari jadwal.");
-  };
-
-  // Reset to initial mock data
-  const handleResetData = () => {
-    if (
-      window.confirm(
-        "Apakah Anda yakin ingin mengatur ulang data ke daftar tugas bawaan XII SIJA 1?"
-      )
-    ) {
-      setTasks(INITIAL_TASKS);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_TASKS));
-      setSelectedDayTab("Rabu");
-      showToast("Data tugas berhasil diatur ulang ke data default.");
+  // Switch day tab and automatically update date to upcoming date of that day
+  const handleSelectDay = (day: DayOfWeek) => {
+    setSelectedDay(day);
+    if (day === smartTomorrow.day) {
+      setSelectedIsoDate(smartTomorrow.isoDate);
+    } else {
+      setSelectedIsoDate(getUpcomingDateForDay(day));
     }
   };
 
-  if (!isLoaded) {
+  const handleJumpToTomorrow = () => {
+    const fresh = getSmartTargetDayAndDate();
+    setSelectedDay(fresh.day);
+    setSelectedIsoDate(fresh.isoDate);
+    showToast(`Kembali ke jadwal hari besok (${fresh.day})`);
+  };
+
+  const handleUpdateSubjectDraft = (
+    subjectName: string,
+    updatedDraft: SubjectDraft
+  ) => {
+    const key = normalizeSubjectKey(subjectName);
+    setDrafts((prev) => ({
+      ...prev,
+      [key]: updatedDraft,
+    }));
+  };
+
+  const handleClearSubjectDraft = (subjectName: string) => {
+    const key = normalizeSubjectKey(subjectName);
+    setDrafts((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+    showToast(`Tugas ${subjectName} direset menjadi - -`);
+  };
+
+  const handleClearAllDaySubjects = (day: DayOfWeek) => {
+    const daySubjects = classConfig.schedule[day] || [];
+    setDrafts((prev) => {
+      const next = { ...prev };
+      daySubjects.forEach((subj) => {
+        delete next[normalizeSubjectKey(subj)];
+      });
+      return next;
+    });
+    showToast(`Seluruh mapel hari ${day} dikosongkan (- -)`);
+  };
+
+  const handleSaveClassConfig = (newConfig: ClassConfig) => {
+    setClassConfig(newConfig);
+    showToast(`Jadwal kelas ${newConfig.className} berhasil disimpan!`);
+  };
+
+  const handleResetAllData = () => {
+    setClassConfig(DEFAULT_CLASS_CONFIG);
+    setDrafts(INITIAL_SUBJECT_DRAFTS);
+    localStorage.setItem(
+      STORAGE_CONFIG_KEY,
+      JSON.stringify(DEFAULT_CLASS_CONFIG)
+    );
+    localStorage.setItem(
+      STORAGE_DRAFTS_KEY,
+      JSON.stringify(INITIAL_SUBJECT_DRAFTS)
+    );
+    const target = getSmartTargetDayAndDate();
+    setSelectedDay(target.day);
+    setSelectedIsoDate(target.isoDate);
+    showToast("Data jadwal & draft dikembalikan ke preset XII SIJA 1");
+  };
+
+  const activeSubjectCount = useMemo(() => {
+    return Object.values(drafts).filter((d) => {
+      const hasPoints = d.points.some((p) => p.text.trim().length > 0);
+      const hasLinks = d.links.some((l) => l.url.trim().length > 0);
+      return hasPoints || hasLinks;
+    }).length;
+  }, [drafts]);
+
+  if (!isClient) {
     return (
-      <div className="min-h-screen bg-[#F9FAFB] flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-          <p className="text-xs font-mono text-gray-500">
-            Memuat Sistem SIJAsisten...
-          </p>
+      <div className="min-h-screen bg-zine-paper flex items-center justify-center p-4">
+        <div className="bg-[#C8F560] neo-card px-6 py-4 font-mono text-sm font-extrabold uppercase -rotate-1">
+          ✦ Memuat SIJASISTEN // Zine OS...
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#F9FAFB] flex flex-col justify-between">
+    <div className="min-h-screen bg-zine-paper text-[#141413] flex flex-col justify-between relative overflow-x-hidden">
       <div>
-        {/* Navigation & Header */}
-        <Header tasks={tasks} onResetData={handleResetData} />
+        {/* Header Neo-Brutalist Zine */}
+        <Header
+          classNameLabel={classConfig.className}
+          activeSubjectCount={activeSubjectCount}
+          onOpenScheduleModal={() => setIsScheduleModalOpen(true)}
+          onResetAllData={handleResetAllData}
+        />
 
-        {/* Global Toast Notification */}
+        {/* Floating Toast */}
         {toastMessage && (
-          <div className="fixed top-4 right-4 z-50 bg-gray-900 text-white px-4 py-2.5 rounded-lg text-xs font-semibold shadow-lg flex items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-150">
-            <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+          <div className="fixed bottom-5 right-5 z-50 bg-[#141413] text-[#C8F560] neo-card-sm px-4 py-2.5 text-xs font-extrabold flex items-center gap-2 -rotate-1">
+            <CheckCircle2 className="w-4 h-4 stroke-[2.6] shrink-0 text-[#FF5A36]" />
             <span>{toastMessage}</span>
           </div>
         )}
 
-        {/* Quick Announcement Bar */}
-        <div className="bg-blue-50/70 border-b border-blue-100 py-2 px-4">
-          <div className="max-w-7xl mx-auto flex items-center justify-between text-xs text-blue-900">
-            <div className="flex items-center gap-2">
-              <span className="font-bold bg-blue-600 text-white px-1.5 py-0.5 rounded text-[10px]">
-                REKAP HARIAN
-              </span>
-              <span className="truncate">
-                Pilih hari untuk menginput laporan seluruh 4-5 mapel sekaligus sesuai jadwal, lalu salin broadcast reminder ke WhatsApp kelas.
-              </span>
-            </div>
-            <span className="hidden sm:inline-block font-mono text-[11px] text-blue-700">
-              XII SIJA 1
-            </span>
-          </div>
-        </div>
-
-        {/* Main Content Dashboard */}
+        {/* Main Content */}
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          {/* Two-Column Grid on Desktop, Stacking on Mobile */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-            {/* Panel Left: Form Rekap Multi-Mapel Harian (Col 6) */}
-            <div className="lg:col-span-6">
+            {/* Left Column: Smart Day Ticket + Subject Quick-Draft Cards (7 cols) */}
+            <div className="lg:col-span-7">
               <TaskFormPanel
-                tasks={tasks}
-                onSaveDailyTasks={handleSaveDailyTasks}
-                selectedDayTab={selectedDayTab}
-                onSelectDayTab={(day) => setSelectedDayTab(day)}
+                selectedDay={selectedDay}
+                selectedIsoDate={selectedIsoDate}
+                smartTomorrowDay={smartTomorrow.day}
+                smartTomorrowIsoDate={smartTomorrow.isoDate}
+                schedule={classConfig.schedule}
+                drafts={drafts}
+                onSelectDay={handleSelectDay}
+                onChangeIsoDate={setSelectedIsoDate}
+                onJumpToTomorrow={handleJumpToTomorrow}
+                onUpdateSubjectDraft={handleUpdateSubjectDraft}
+                onClearSubjectDraft={handleClearSubjectDraft}
+                onClearAllDaySubjects={handleClearAllDaySubjects}
               />
             </div>
 
-            {/* Panel Right: Output Preview Reminder WhatsApp (Col 6) */}
-            <div className="lg:col-span-6 sticky top-4">
+            {/* Right Column: Sticky WhatsApp Console Preview & CTA (5 cols) */}
+            <div className="lg:col-span-5 lg:sticky lg:top-24">
               <ReminderPreviewPanel
-                tasks={tasks}
-                selectedDayTab={selectedDayTab}
-                onSelectDayTab={(day) => setSelectedDayTab(day)}
+                selectedDay={selectedDay}
+                selectedIsoDate={selectedIsoDate}
+                schedule={classConfig.schedule}
+                drafts={drafts}
               />
             </div>
           </div>
 
-          {/* Full Task Management List Table/Grid */}
+          {/* Weekly Overview Board */}
           <TaskListSection
-            tasks={tasks}
-            onToggleTaskComplete={handleToggleComplete}
-            onDeleteTask={handleDeleteTask}
-            onSelectDayFilter={(day) => setSelectedDayTab(day)}
-            activeFilterDay={selectedDayTab}
+            schedule={classConfig.schedule}
+            drafts={drafts}
+            selectedDay={selectedDay}
+            onSelectDay={handleSelectDay}
+            onClearSubjectDraft={handleClearSubjectDraft}
           />
         </main>
       </div>
 
-      {/* Clean Footer */}
-      <footer className="w-full bg-white border-t border-gray-200 mt-12 py-4">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-gray-500">
+      {/* Modal Atur Jadwal Kelas */}
+      {isScheduleModalOpen && (
+        <ScheduleModal
+          isOpen={isScheduleModalOpen}
+          onClose={() => setIsScheduleModalOpen(false)}
+          classConfig={classConfig}
+          onSaveConfig={handleSaveClassConfig}
+          onResetToDefaultPreset={handleResetAllData}
+        />
+      )}
+
+      {/* Footer */}
+      <footer className="w-full bg-[#FFFDF9] border-t-2 border-[#141413] mt-12 py-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs font-bold text-[#141413]">
           <div className="flex items-center gap-2">
-            <span className="font-bold text-gray-800">SIJAsisten v1.0</span>
-            <span>•</span>
-            <span>Sekretaris Kelas XII SIJA 1</span>
-            <span>•</span>
-            <span className="text-gray-400">SMK Negeri Jurusan SIJA</span>
+            <span className="bg-[#C8F560] px-2.5 py-0.5 border-2 border-[#141413] rounded-full font-extrabold -rotate-1">
+              ✦ SIJASISTEN ZINE v2.5
+            </span>
+            <span>{"//"}</span>
+            <span>Sekretaris Kelas {classConfig.className}</span>
           </div>
-          <div className="text-[11px] text-gray-400 font-mono">
-            Neo-Tech Minimalist Dashboard • Multi-Subject Daily Reminder
+          <div className="font-mono text-[11px] font-bold text-[#141413]/70">
+            [+] NEO-BRUTALIST ZINE EDITION • LOCALSTORAGE SYNC
           </div>
         </div>
       </footer>

@@ -2,55 +2,174 @@
 
 @layer base {
   :root {
-    --bg-main: #f9fafb;
-    --bg-card: #ffffff;
-    --bg-subtle: #f3f4f6;
-    --border-color: #e5e7eb;
-    --border-strong: #d1d5db;
-    --text-primary: #111827;
-    --text-secondary: #4b5563;
-    --text-muted: #6b7280;
-    --color-primary: #2563eb;
-    --color-primary-dark: #1d4ed8;
-    --color-indigo: #4f46e5;
-    --color-indigo-dark: #4338ca;
-    --color-teal: #0d9488;
-    --color-teal-dark: #0f766e;
-    --color-cyan: #0891b2;
-    --color-cyan-dark: #0e7490;
+    --bg-paper: #f3efe6;
+    --bg-studio: #fffdf9;
+    --ink: #141413;
+    --acid-lime: #c8f560;
+    --tangerine-coral: #ff5a36;
+    --coral-soft: #ff7a59;
+    --electric-lavender: #ddd6fe;
+    --lavender-tag: #c4b5fd;
+    --sky-tag: #7dd3fc;
+    --soft-sage: #d1fae5;
+    --charcoal: #18181b;
+    --font-display: var(--font-space-grotesk), "Space Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --font-mono: var(--font-jetbrains-mono), "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   }
 
   body {
-    background-color: var(--bg-main);
-    color: var(--text-primary);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background-color: #f3efe6;
+    color: #141413;
+    font-family: var(--font-display);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
+
+  h1, h2, h3, h4, h5, h6, button {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+  }
 }
 
-/* Custom crisp scrollbar for neo-tech minimalist feel */
+/* Warm Paper + Dot-Grid Zine Background */
+.bg-zine-paper {
+  background-color: #f3efe6;
+  background-image: radial-gradient(#141413 1.25px, transparent 1.25px);
+  background-size: 24px 24px;
+}
+
+/* Hazard / Caution Diagonal Stripes Bar */
+.bg-hazard-stripes {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    #141413,
+    #141413 8px,
+    #c8f560 8px,
+    #c8f560 16px
+  );
+}
+
+.bg-hazard-coral {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    #141413,
+    #141413 8px,
+    #ff5a36 8px,
+    #ff5a36 16px
+  );
+}
+
+/* Mini Checkerboard Zine Accent */
+.bg-checkerboard {
+  background-color: #fffdf9;
+  background-image:
+    linear-gradient(45deg, #141413 25%, transparent 25%),
+    linear-gradient(-45deg, #141413 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #141413 75%),
+    linear-gradient(-45deg, transparent 75%, #141413 75%);
+  background-size: 12px 12px;
+  background-position: 0 0, 0 6px, 6px -6px, -6px 0;
+}
+
+/* Neo-Brutalist Zine Cards & Controls */
+.neo-card {
+  border: 2px solid #141413;
+  border-radius: 14px;
+  box-shadow: 4px 4px 0px #141413;
+}
+
+.neo-card-sharp {
+  border: 2px solid #141413;
+  border-radius: 4px;
+  box-shadow: 4px 4px 0px #141413;
+}
+
+.neo-card-sm {
+  border: 2px solid #141413;
+  border-radius: 10px;
+  box-shadow: 3px 3px 0px #141413;
+}
+
+.neo-btn {
+  border: 2px solid #141413;
+  border-radius: 10px;
+  box-shadow: 4px 4px 0px #141413;
+  transition: transform 120ms ease, box-shadow 120ms ease, background-color 120ms ease;
+}
+
+.neo-btn:hover {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0px #141413;
+}
+
+.neo-btn:active {
+  transform: translate(4px, 4px);
+  box-shadow: 0px 0px 0px #141413;
+}
+
+.neo-btn-sm {
+  border: 2px solid #141413;
+  border-radius: 8px;
+  box-shadow: 3px 3px 0px #141413;
+  transition: transform 120ms ease, box-shadow 120ms ease, background-color 120ms ease;
+}
+
+.neo-btn-sm:hover {
+  transform: translate(1.5px, 1.5px);
+  box-shadow: 1.5px 1.5px 0px #141413;
+}
+
+.neo-btn-sm:active {
+  transform: translate(3px, 3px);
+  box-shadow: 0px 0px 0px #141413;
+}
+
+.neo-pill {
+  border: 2px solid #141413;
+  border-radius: 9999px;
+  box-shadow: 2px 2px 0px #141413;
+}
+
+.neo-input {
+  border: 2px solid #141413;
+  border-radius: 8px;
+  background-color: #fffdf9;
+  color: #141413;
+  transition: box-shadow 120ms ease;
+}
+
+.neo-input:focus {
+  outline: none;
+  box-shadow: 3px 3px 0px #141413;
+}
+
+/* Custom Neo-Brutalist Zine Scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f5f9;
+  background: #f3efe6;
+  border-left: 2px solid #141413;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 3px;
+  background: #c8f560;
+  border: 2px solid #141413;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: #ff5a36;
 }
 
-/* Monospace styling for WhatsApp code preview */
+/* JetBrains Mono styling for WhatsApp code preview, dates & counters */
+.font-mono,
 .font-mono-preview {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-family: var(--font-mono);
   letter-spacing: -0.01em;
-  line-height: 1.6;
+}
+
+.font-mono-preview {
+  line-height: 1.65;
 }
