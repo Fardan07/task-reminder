@@ -90,7 +90,7 @@ export const ReminderPreviewPanel: React.FC<ReminderPreviewPanelProps> = ({
                 <span className="text-[#C8F560] text-sm">✦</span>
               </div>
               <p className="font-mono text-xs font-bold text-[#D1FAE5]">
-                {selectedDay} {"//"} {formattedDate}
+                {selectedDay}, {formattedDate}
               </p>
             </div>
           </div>
@@ -100,15 +100,15 @@ export const ReminderPreviewPanel: React.FC<ReminderPreviewPanelProps> = ({
           </span>
         </div>
 
-        {/* Kotak Preview Teks Monospace (Soft Sage Frame + Studio Paper Screen) */}
+        {/* Kotak Preview Teks Monospace */}
         <div className="relative mb-4 bg-[#D1FAE5] p-2.5 border-2 border-[#141413] rounded-xl shadow-[3px_3px_0px_#000000]">
           <div className="bg-[#141413] text-[#FFFDF9] px-3 py-1.5 rounded-t-lg flex items-center justify-between font-mono text-[11px] font-bold">
             <span className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-[#C8F560] inline-block" />
-              <span>TX-WA // SIAP KIRIM GRUP</span>
+              <span>FORMAT PESAN SIAP KIRIM GRUP WA</span>
             </span>
             <span className="text-[#C8F560]">
-              [{generatedText.split("\n").length} BARIS]
+              {generatedText.split("\n").length} BARIS
             </span>
           </div>
 

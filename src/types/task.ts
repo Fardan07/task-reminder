@@ -30,3 +30,10 @@ export interface ClassConfig {
   className: string;
   schedule: WeeklyScheduleMap;
 }
+
+export interface ScheduleBackupPayload {
+  v: number;
+  className: string;
+  schedule: WeeklyScheduleMap;
+  customSubjects?: string[];
+}

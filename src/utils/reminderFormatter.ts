@@ -51,6 +51,10 @@ export function generateWhatsAppReminder(
     : `*❗REMINDER TUGAS HARI ${selectedDay.toUpperCase()}❗*`;
   const dividerLine = `*===============================================*`;
 
+  if (daySubjects.length === 0) {
+    return `${headerLine}\n${dividerLine}\n\n_Belum ada jadwal mata pelajaran di hari ${selectedDay}._`;
+  }
+
   const subjectBlocks = daySubjects.map((subjectName) => {
     const key = normalizeSubjectKey(subjectName);
     const draft = drafts[key];

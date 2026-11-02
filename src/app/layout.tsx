@@ -17,9 +17,9 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SIJASISTEN — Zine Task Reminder & WhatsApp Generator",
+  title: "SEKREKITA — Asisten Catat Tugas & Generator Reminder WhatsApp Kelas",
   description:
-    "Aplikasi pencatat draft tugas harian & generator format reminder WhatsApp bergaya Neo-Brutalist Zine untuk Sekretaris Kelas XII SIJA 1.",
+    "Aplikasi pencatat tugas harian & generator format reminder WhatsApp kelas yang cepat, praktis, dan siap pakai untuk Sekretaris Kelas.",
 };
 
 export default function RootLayout({

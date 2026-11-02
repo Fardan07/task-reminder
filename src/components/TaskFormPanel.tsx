@@ -38,32 +38,25 @@ interface TaskFormPanelProps {
   onUpdateSubjectDraft: (subjectName: string, draft: SubjectDraft) => void;
   onClearSubjectDraft: (subjectName: string) => void;
   onClearAllDaySubjects: (day: DayOfWeek) => void;
+  onOpenScheduleModal?: () => void;
 }
 
 const SUBJECT_ACCENT_PALETTE = [
   {
     bg: "bg-[#C8F560]",
     ribbon: "bg-[#C8F560]",
-    softBg: "bg-[#C8F560]/20",
-    label: "LIME",
   },
   {
     bg: "bg-[#FF7A59]",
     ribbon: "bg-[#FF7A59]",
-    softBg: "bg-[#FF7A59]/15",
-    label: "CORAL",
   },
   {
     bg: "bg-[#C4B5FD]",
     ribbon: "bg-[#C4B5FD]",
-    softBg: "bg-[#C4B5FD]/25",
-    label: "LAVENDER",
   },
   {
     bg: "bg-[#7DD3FC]",
     ribbon: "bg-[#7DD3FC]",
-    softBg: "bg-[#7DD3FC]/25",
-    label: "SKY",
   },
 ];
 
@@ -80,6 +73,7 @@ export const TaskFormPanel: React.FC<TaskFormPanelProps> = ({
   onUpdateSubjectDraft,
   onClearSubjectDraft,
   onClearAllDaySubjects,
+  onOpenScheduleModal,
 }) => {
   const [expandedKeys, setExpandedKeys] = useState<Record<string, boolean>>({});
   const [openLinkKeys, setOpenLinkKeys] = useState<Record<string, boolean>>({});
@@ -95,15 +89,28 @@ export const TaskFormPanel: React.FC<TaskFormPanelProps> = ({
     const isActive = isSubjectDraftActiveForDay(existing, selectedDay);
 
     if (!isActive && !expandedKeys[key]) {
-      const initialDraft: SubjectDraft = {
-        subjectKey: key,
-        subjectName,
-        points: [{ id: `pt-${Date.now()}`, text: "" }],
-        links: [],
-        targetDay: "ALL",
-        updatedAt: new Date().toISOString(),
-      };
-      onUpdateSubjectDraft(subjectName, initialDraft);
+      const hasExistingContent =
+        existing &&
+        (existing.points.some((p) => p.text.trim().length > 0) ||
+          existing.links.some((l) => l.url.trim().length > 0));
+
+      if (hasExistingContent && existing) {
+        onUpdateSubjectDraft(subjectName, {
+          ...existing,
+          targetDay: "ALL",
+          updatedAt: new Date().toISOString(),
+        });
+      } else {
+        const initialDraft: SubjectDraft = {
+          subjectKey: key,
+          subjectName,
+          points: [{ id: `pt-${Date.now()}`, text: "" }],
+          links: [],
+          targetDay: "ALL",
+          updatedAt: new Date().toISOString(),
+        };
+        onUpdateSubjectDraft(subjectName, initialDraft);
+      }
       setExpandedKeys((prev) => ({ ...prev, [key]: true }));
     } else {
       setExpandedKeys((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -129,6 +136,7 @@ export const TaskFormPanel: React.FC<TaskFormPanelProps> = ({
       p.id === pointId ? { ...p, text: newText } : p
     );
 
+    setExpandedKeys((prev) => ({ ...prev, [key]: true }));
     onUpdateSubjectDraft(subjectName, {
       ...current,
       subjectName,
@@ -167,7 +175,13 @@ export const TaskFormPanel: React.FC<TaskFormPanelProps> = ({
     const current = drafts[key];
     if (!current) return;
 
-    const updatedPoints = current.points.filter((p) => p.id !== pointId);
+    const filteredPoints = current.points.filter((p) => p.id !== pointId);
+    const updatedPoints =
+      filteredPoints.length === 0 && current.links.length === 0
+        ? [{ id: `pt-${Date.now()}`, text: "" }]
+        : filteredPoints;
+
+    setExpandedKeys((prev) => ({ ...prev, [key]: true }));
     onUpdateSubjectDraft(subjectName, {
       ...current,
       points: updatedPoints,
@@ -216,6 +230,7 @@ export const TaskFormPanel: React.FC<TaskFormPanelProps> = ({
       l.id === linkId ? { ...l, [field]: value } : l
     );
 
+    setExpandedKeys((prev) => ({ ...prev, [key]: true }));
     onUpdateSubjectDraft(subjectName, {
       ...current,
       links: updatedLinks,
@@ -229,6 +244,7 @@ export const TaskFormPanel: React.FC<TaskFormPanelProps> = ({
     if (!current) return;
 
     const updatedLinks = current.links.filter((l) => l.id !== linkId);
+    setExpandedKeys((prev) => ({ ...prev, [key]: true }));
     onUpdateSubjectDraft(subjectName, {
       ...current,
       links: updatedLinks,
@@ -244,6 +260,7 @@ export const TaskFormPanel: React.FC<TaskFormPanelProps> = ({
     const current = drafts[key];
     if (!current) return;
 
+    setExpandedKeys((prev) => ({ ...prev, [key]: true }));
     onUpdateSubjectDraft(subjectName, {
       ...current,
       targetDay,
@@ -258,6 +275,19 @@ export const TaskFormPanel: React.FC<TaskFormPanelProps> = ({
     setOpenLinkKeys((prev) => ({ ...prev, [key]: false }));
   };
 
+  const handleClearAllForSelectedDay = () => {
+    const nextExpanded = { ...expandedKeys };
+    const nextLinks = { ...openLinkKeys };
+    daySubjects.forEach((subj) => {
+      const k = normalizeSubjectKey(subj);
+      nextExpanded[k] = false;
+      nextLinks[k] = false;
+    });
+    setExpandedKeys(nextExpanded);
+    setOpenLinkKeys(nextLinks);
+    onClearAllDaySubjects(selectedDay);
+  };
+
   const activeCountToday = daySubjects.filter((subj) => {
     const key = normalizeSubjectKey(subj);
     return isSubjectDraftActiveForDay(drafts[key], selectedDay);
@@ -267,7 +297,7 @@ export const TaskFormPanel: React.FC<TaskFormPanelProps> = ({
     <div className="space-y-6">
       {/* 1. KARTU TARGET HARI (FESTIVAL TICKET CUTOUT + ACID LIME #C8F560) */}
       <div className="bg-[#C8F560] neo-card relative overflow-hidden">
-        {/* Decorative Corner Starburst SVG (Background Watermark) */}
+        {/* Decorative Corner Starburst SVG */}
         <svg
           viewBox="0 0 100 100"
           className="w-24 h-24 text-[#141413]/10 absolute -top-4 -right-4 pointer-events-none"
@@ -291,14 +321,9 @@ export const TaskFormPanel: React.FC<TaskFormPanelProps> = ({
                 </span>
               </div>
 
-              <div className="flex items-center gap-2">
-                <h2 className="text-xl sm:text-2xl font-extrabold uppercase tracking-tight text-[#141413]">
-                  TARGET HARI: {selectedDay}
-                </h2>
-                <span className="font-mono text-xs font-bold text-[#141413]/70">
-                  [+]
-                </span>
-              </div>
+              <h2 className="text-xl sm:text-2xl font-extrabold uppercase tracking-tight text-[#141413]">
+                TARGET HARI: {selectedDay}
+              </h2>
 
               <div className="inline-flex items-center gap-2 mt-1.5 px-2.5 py-0.5 bg-[#FFFDF9] border-2 border-[#141413] rounded-md shadow-[2px_2px_0px_#141413]">
                 <span className="font-mono text-xs sm:text-sm font-extrabold text-[#141413]">
@@ -336,14 +361,11 @@ export const TaskFormPanel: React.FC<TaskFormPanelProps> = ({
 
         {/* TICKET PERFORATION DIVIDER WITH LEFT & RIGHT PUNCH NOTCHES */}
         <div className="relative flex items-center justify-between my-0.5">
-          {/* Left Semicircle Cutout Notch */}
           <div
             className="w-6 h-6 rounded-full bg-[#F3EFE6] border-2 border-[#141413] -ml-3.5 shrink-0 z-10"
             aria-hidden="true"
           />
-          {/* Dashed Ticket Tear Line */}
           <div className="w-full border-t-2 border-dashed border-[#141413] mx-1" />
-          {/* Right Semicircle Cutout Notch */}
           <div
             className="w-6 h-6 rounded-full bg-[#F3EFE6] border-2 border-[#141413] -mr-3.5 shrink-0 z-10"
             aria-hidden="true"
@@ -353,10 +375,7 @@ export const TaskFormPanel: React.FC<TaskFormPanelProps> = ({
         {/* Bottom Section of Ticket: Day Tabs */}
         <div className="p-4 sm:p-5 pt-3.5 relative z-10">
           <div className="flex items-center justify-between text-xs font-extrabold uppercase mb-2.5">
-            <span className="flex items-center gap-1.5">
-              <span className="font-mono text-[#141413]">{"///"}</span>
-              <span>PILIH HARI KBM:</span>
-            </span>
+            <span>PILIH HARI PELAJARAN:</span>
             <span className="font-mono bg-[#141413] text-[#C8F560] px-2.5 py-0.5 border-2 border-[#141413] rounded-full text-[11px] font-bold">
               {activeCountToday}/{daySubjects.length} MAPEL ISI
             </span>
@@ -415,23 +434,18 @@ export const TaskFormPanel: React.FC<TaskFormPanelProps> = ({
         </div>
       </div>
 
-      {/* 2. KARTU DAFTAR MAPEL INTERAKTIF (WARM STUDIO WHITE #FFFDF9 + MULTI-ACCENT ZINE TAGS) */}
+      {/* 2. KARTU DAFTAR MAPEL INTERAKTIF (WARM STUDIO WHITE #FFFDF9 + MULTI-ACCENT TAGS) */}
       <div className="bg-[#FFFDF9] neo-card overflow-hidden">
-        {/* Top Checkerboard + Header Bar */}
+        {/* Top Checkerboard Bar */}
         <div className="h-2.5 w-full bg-checkerboard border-b-2 border-[#141413]" />
 
         <div className="p-4 sm:p-5">
           <div className="flex flex-wrap items-center justify-between gap-2 pb-4 mb-4 border-b-2 border-[#141413]">
             <div>
-              <div className="flex items-center gap-2">
-                <span className="px-2 py-0.5 bg-[#141413] text-[#FFFDF9] font-mono text-[10px] font-bold rounded">
-                  LOG//MAPEL
-                </span>
-                <h3 className="text-base sm:text-lg font-extrabold uppercase tracking-tight text-[#141413]">
-                  DAFTAR MAPEL HARI {selectedDay}
-                </h3>
-              </div>
-              <p className="text-xs font-medium text-[#141413]/80 mt-1">
+              <h3 className="text-base sm:text-lg font-extrabold uppercase tracking-tight text-[#141413]">
+                DAFTAR MAPEL HARI {selectedDay}
+              </h3>
+              <p className="text-xs font-medium text-[#141413]/80 mt-0.5">
                 Klik <span className="font-bold underline decoration-[#FF5A36]">+ Tambah Tugas</span> untuk mengisi poin tugas, atau{" "}
                 <span className="font-bold">Selesai / Kosongkan</span> jika sudah lewat.
               </p>
@@ -459,7 +473,7 @@ export const TaskFormPanel: React.FC<TaskFormPanelProps> = ({
               {activeCountToday > 0 && (
                 <button
                   type="button"
-                  onClick={() => onClearAllDaySubjects(selectedDay)}
+                  onClick={handleClearAllForSelectedDay}
                   className="bg-[#FFFDF9] hover:bg-[#FF7A59] text-[#141413] font-bold text-xs px-3 py-1.5 neo-btn-sm cursor-pointer flex items-center gap-1.5"
                 >
                   <RotateCcw className="w-3.5 h-3.5 stroke-[2.4]" />
@@ -470,248 +484,285 @@ export const TaskFormPanel: React.FC<TaskFormPanelProps> = ({
           </div>
 
           <div className="space-y-3.5">
-            {daySubjects.map((subjectName, index) => {
-              const key = normalizeSubjectKey(subjectName);
-              const draft = drafts[key];
-              const isActive = isSubjectDraftActiveForDay(draft, selectedDay);
-              const isExpanded = isActive || !!expandedKeys[key];
-              const subjectDays = getDaysForSubject(subjectName, schedule);
-              const isMultiDaySubject = subjectDays.length > 1;
-              const accent =
-                SUBJECT_ACCENT_PALETTE[index % SUBJECT_ACCENT_PALETTE.length];
+            {daySubjects.length === 0 ? (
+              <div className="p-6 text-center bg-[#F3EFE6] border-2 border-dashed border-[#141413] rounded-xl space-y-2.5">
+                <p className="text-xs sm:text-sm font-extrabold text-[#141413]">
+                  Belum ada jadwal mata pelajaran di hari {selectedDay}.
+                </p>
+                {onOpenScheduleModal && (
+                  <button
+                    type="button"
+                    onClick={onOpenScheduleModal}
+                    className="px-4 py-2 bg-[#C8F560] hover:bg-[#b8e84b] text-[#141413] text-xs font-extrabold uppercase neo-btn-sm cursor-pointer inline-flex items-center gap-1.5"
+                  >
+                    <Plus className="w-3.5 h-3.5 stroke-[2.6]" />
+                    <span>Tambah Mapel Hari {selectedDay}</span>
+                  </button>
+                )}
+              </div>
+            ) : (
+              daySubjects.map((subjectName, index) => {
+                const key = normalizeSubjectKey(subjectName);
+                const draft = drafts[key];
+                const isActive = isSubjectDraftActiveForDay(draft, selectedDay);
+                const isExpanded = isActive || !!expandedKeys[key];
+                const subjectDays = getDaysForSubject(subjectName, schedule);
+                const isMultiDaySubject = subjectDays.length > 1;
+                const hasTaskInOtherDay =
+                  !isActive &&
+                  draft &&
+                  draft.targetDay !== "ALL" &&
+                  draft.targetDay !== selectedDay &&
+                  (draft.points.some((p) => p.text.trim().length > 0) ||
+                    draft.links.some((l) => l.url.trim().length > 0));
+                const accent =
+                  SUBJECT_ACCENT_PALETTE[index % SUBJECT_ACCENT_PALETTE.length];
 
-              const points = draft?.points || [];
-              const links = draft?.links || [];
+                const points = draft?.points || [];
+                const links = draft?.links || [];
 
-              return (
-                <div
-                  key={`${selectedDay}-${subjectName}-${index}`}
-                  className={`neo-card-sm overflow-hidden transition-colors relative ${
-                    isExpanded ? "bg-[#FFFDF9]" : "bg-[#F3EFE6]/60"
-                  }`}
-                >
-                  {/* Left Color Accent Ribbon Bar */}
+                return (
                   <div
-                    className={`absolute left-0 top-0 bottom-0 w-2.5 border-r-2 border-[#141413] ${accent.ribbon}`}
-                    aria-hidden="true"
-                  />
+                    key={`${selectedDay}-${subjectName}-${index}`}
+                    className={`neo-card-sm overflow-hidden transition-colors relative ${
+                      isExpanded ? "bg-[#FFFDF9]" : "bg-[#F3EFE6]/60"
+                    }`}
+                  >
+                    {/* Left Color Accent Ribbon Bar */}
+                    <div
+                      className={`absolute left-0 top-0 bottom-0 w-2.5 border-r-2 border-[#141413] ${accent.ribbon}`}
+                      aria-hidden="true"
+                    />
 
-                  <div className="pl-5 pr-3.5 py-3.5 sm:pr-4 sm:py-4">
-                    {/* Header Kartu Mapel */}
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex items-center gap-2.5">
-                        <span
-                          className={`w-8 h-8 ${accent.bg} border-2 border-[#141413] rounded-lg font-mono text-xs font-extrabold flex items-center justify-center shadow-[2px_2px_0px_#141413] shrink-0 -rotate-2`}
-                        >
-                          0{index + 1}
-                        </span>
-                        <div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <h4 className="text-sm sm:text-base font-extrabold uppercase tracking-tight text-[#141413]">
-                              {subjectName}
-                            </h4>
-                            {isMultiDaySubject && (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-[#DDD6FE] border-2 border-[#141413] rounded-full text-[10px] font-mono font-bold text-[#141413]">
-                                <Repeat className="w-2.5 h-2.5 stroke-[2.5]" />
-                                {subjectDays.join(" • ")}
-                              </span>
+                    <div className="pl-5 pr-3.5 py-3.5 sm:pr-4 sm:py-4">
+                      {/* Header Kartu Mapel */}
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2.5">
+                          <span
+                            className={`w-8 h-8 ${accent.bg} border-2 border-[#141413] rounded-lg font-mono text-xs font-extrabold flex items-center justify-center shadow-[2px_2px_0px_#141413] shrink-0 -rotate-2`}
+                          >
+                            0{index + 1}
+                          </span>
+                          <div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h4 className="text-sm sm:text-base font-extrabold uppercase tracking-tight text-[#141413]">
+                                {subjectName}
+                              </h4>
+                              {isMultiDaySubject && (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-[#DDD6FE] border-2 border-[#141413] rounded-full text-[10px] font-mono font-bold text-[#141413]">
+                                  <Repeat className="w-2.5 h-2.5 stroke-[2.5]" />
+                                  {subjectDays.join(" • ")}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Status jika belum ada tugas */}
+                            {!isExpanded && (
+                              <p className="font-mono text-xs font-bold text-[#141413]/60 mt-0.5">
+                                {hasTaskInOtherDay
+                                  ? `Tidak ada tugas hari ini (- -) • Aktif di hari ${draft?.targetDay}`
+                                  : "Tidak ada tugas (- -)"}
+                              </p>
                             )}
                           </div>
+                        </div>
 
-                          {/* Status jika belum ada tugas */}
-                          {!isExpanded && (
-                            <p className="font-mono text-xs font-bold text-[#141413]/60 mt-0.5">
-                              Tidak ada tugas (- -)
-                            </p>
+                        {/* Tombol Aksi Cepat di Kanan Kartu */}
+                        <div className="flex items-center gap-2">
+                          {!isExpanded ? (
+                            <button
+                              type="button"
+                              onClick={() => toggleExpandSubject(subjectName)}
+                              className={`${accent.bg} hover:opacity-90 text-[#141413] font-extrabold text-xs px-3.5 py-1.5 neo-btn-sm cursor-pointer flex items-center gap-1`}
+                            >
+                              <Plus className="w-3.5 h-3.5 stroke-[2.8]" />
+                              <span>Tambah Tugas</span>
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleClearSingleSubject(subjectName)
+                              }
+                              className="bg-[#F3EFE6] hover:bg-[#FF7A59] text-[#141413] font-bold text-xs px-3 py-1.5 neo-btn-sm cursor-pointer flex items-center gap-1.5"
+                              title="Reset mapel ini kembali menjadi - -"
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5 stroke-[2.4]" />
+                              <span>Selesai / Kosongkan</span>
+                            </button>
                           )}
                         </div>
                       </div>
 
-                      {/* Tombol Aksi Cepat di Kanan Kartu */}
-                      <div className="flex items-center gap-2">
-                        {!isExpanded ? (
-                          <button
-                            type="button"
-                            onClick={() => toggleExpandSubject(subjectName)}
-                            className={`${accent.bg} hover:opacity-90 text-[#141413] font-extrabold text-xs px-3.5 py-1.5 neo-btn-sm cursor-pointer flex items-center gap-1`}
-                          >
-                            <Plus className="w-3.5 h-3.5 stroke-[2.8]" />
-                            <span>Tambah Tugas</span>
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => handleClearSingleSubject(subjectName)}
-                            className="bg-[#F3EFE6] hover:bg-[#FF7A59] text-[#141413] font-bold text-xs px-3 py-1.5 neo-btn-sm cursor-pointer flex items-center gap-1.5"
-                            title="Reset mapel ini kembali menjadi - -"
-                          >
-                            <CheckCircle2 className="w-3.5 h-3.5 stroke-[2.4]" />
-                            <span>Selesai / Kosongkan</span>
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Form Input Inline Cepat */}
-                    {isExpanded && (
-                      <div className="mt-3.5 pt-3 border-t-2 border-dashed border-[#141413] space-y-3">
-                        {/* Opsi Pertemuan Berikutnya jika mapel muncul di >1 hari */}
-                        {isMultiDaySubject && draft && (
-                          <div className="flex flex-wrap items-center justify-between gap-2 bg-[#F3EFE6] border-2 border-[#141413] rounded-lg px-3 py-2 text-xs">
-                            <span className="font-bold text-[#141413]">
-                              Tampilkan tugas <span className="font-extrabold">{subjectName}</span> di:
-                            </span>
-                            <div className="flex items-center gap-1.5">
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  handleTargetDayChange(subjectName, "ALL")
-                                }
-                                className={`px-2.5 py-1 rounded-full border-2 border-[#141413] font-bold text-[11px] cursor-pointer ${
-                                  draft.targetDay === "ALL"
-                                    ? "bg-[#C8F560] text-[#141413] shadow-[2px_2px_0px_#141413]"
-                                    : "bg-[#FFFDF9] text-[#141413]/70"
-                                }`}
-                              >
-                                Semua Pertemuan ({subjectDays.join("/")})
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  handleTargetDayChange(subjectName, selectedDay)
-                                }
-                                className={`px-2.5 py-1 rounded-full border-2 border-[#141413] font-bold text-[11px] cursor-pointer ${
-                                  draft.targetDay === selectedDay
-                                    ? "bg-[#C8F560] text-[#141413] shadow-[2px_2px_0px_#141413]"
-                                    : "bg-[#FFFDF9] text-[#141413]/70"
-                                }`}
-                              >
-                                Hanya {selectedDay}
-                              </button>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Daftar Input Poin Tugas */}
-                        <div className="space-y-2">
-                          <label className="block font-mono text-[11px] font-bold uppercase tracking-wider text-[#141413]">
-                            POIN TUGAS ({points.length}):
-                          </label>
-
-                          {points.map((pt, ptIdx) => (
-                            <div key={pt.id} className="flex items-start gap-2">
-                              <span
-                                className={`font-mono text-xs font-extrabold ${accent.bg} border-2 border-[#141413] rounded-md px-2 py-2 shrink-0`}
-                              >
-                                • -
+                      {/* Form Input Inline Cepat */}
+                      {isExpanded && (
+                        <div className="mt-3.5 pt-3 border-t-2 border-dashed border-[#141413] space-y-3">
+                          {/* Opsi Pertemuan Berikutnya jika mapel muncul di >1 hari */}
+                          {isMultiDaySubject && draft && (
+                            <div className="flex flex-wrap items-center justify-between gap-2 bg-[#F3EFE6] border-2 border-[#141413] rounded-lg px-3 py-2 text-xs">
+                              <span className="font-bold text-[#141413]">
+                                Tampilkan tugas{" "}
+                                <span className="font-extrabold">
+                                  {subjectName}
+                                </span>{" "}
+                                di:
                               </span>
-                              <input
-                                type="text"
-                                value={pt.text}
-                                onChange={(e) =>
-                                  handlePointChange(
-                                    subjectName,
-                                    pt.id,
-                                    e.target.value
-                                  )
-                                }
-                                placeholder={`Ketik poin tugas ke-${ptIdx + 1} untuk ${subjectName}...`}
-                                className="flex-1 neo-input px-3 py-2 text-xs sm:text-sm font-semibold"
-                              />
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  handleRemovePoint(subjectName, pt.id)
-                                }
-                                className="p-2 bg-[#F3EFE6] hover:bg-[#FF7A59] border-2 border-[#141413] rounded-lg text-[#141413] cursor-pointer shrink-0"
-                                title="Hapus poin ini"
-                              >
-                                <Trash2 className="w-4 h-4 stroke-[2.2]" />
-                              </button>
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleTargetDayChange(subjectName, "ALL")
+                                  }
+                                  className={`px-2.5 py-1 rounded-full border-2 border-[#141413] font-bold text-[11px] cursor-pointer ${
+                                    draft.targetDay === "ALL"
+                                      ? "bg-[#C8F560] text-[#141413] shadow-[2px_2px_0px_#141413]"
+                                      : "bg-[#FFFDF9] text-[#141413]/70"
+                                  }`}
+                                >
+                                  Semua Pertemuan ({subjectDays.join("/")})
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleTargetDayChange(
+                                      subjectName,
+                                      selectedDay
+                                    )
+                                  }
+                                  className={`px-2.5 py-1 rounded-full border-2 border-[#141413] font-bold text-[11px] cursor-pointer ${
+                                    draft.targetDay === selectedDay
+                                      ? "bg-[#C8F560] text-[#141413] shadow-[2px_2px_0px_#141413]"
+                                      : "bg-[#FFFDF9] text-[#141413]/70"
+                                  }`}
+                                >
+                                  Hanya {selectedDay}
+                                </button>
+                              </div>
                             </div>
-                          ))}
-                        </div>
+                          )}
 
-                        {/* Daftar Input Link Opsional (Misal: Link Notion) */}
-                        {(links.length > 0 || openLinkKeys[key]) && (
-                          <div className="space-y-2 pt-1">
+                          {/* Daftar Input Poin Tugas */}
+                          <div className="space-y-2">
                             <label className="block font-mono text-[11px] font-bold uppercase tracking-wider text-[#141413]">
-                              SISIPAN LINK OPSIONAL (NOTION / GDRIVE / LMS):
+                              POIN TUGAS ({points.length}):
                             </label>
-                            {links.map((lnk) => (
-                              <div
-                                key={lnk.id}
-                                className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-[#F3EFE6] p-2 border-2 border-[#141413] rounded-lg"
-                              >
+
+                            {points.map((pt, ptIdx) => (
+                              <div key={pt.id} className="flex items-start gap-2">
+                                <span
+                                  className={`font-mono text-xs font-extrabold ${accent.bg} border-2 border-[#141413] rounded-md px-2 py-2 shrink-0`}
+                                >
+                                  • -
+                                </span>
                                 <input
                                   type="text"
-                                  value={lnk.label}
+                                  value={pt.text}
                                   onChange={(e) =>
-                                    handleLinkChange(
+                                    handlePointChange(
                                       subjectName,
-                                      lnk.id,
-                                      "label",
+                                      pt.id,
                                       e.target.value
                                     )
                                   }
-                                  placeholder="Label (cth: Link Notion)"
-                                  className="sm:w-36 neo-input px-2.5 py-1.5 text-xs font-bold"
-                                />
-                                <input
-                                  type="url"
-                                  value={lnk.url}
-                                  onChange={(e) =>
-                                    handleLinkChange(
-                                      subjectName,
-                                      lnk.id,
-                                      "url",
-                                      e.target.value
-                                    )
-                                  }
-                                  placeholder="https://..."
-                                  className="flex-1 neo-input px-2.5 py-1.5 font-mono text-xs font-medium"
+                                  placeholder={`Ketik poin tugas ke-${ptIdx + 1} untuk ${subjectName}...`}
+                                  className="flex-1 neo-input px-3 py-2 text-xs sm:text-sm font-semibold"
                                 />
                                 <button
                                   type="button"
                                   onClick={() =>
-                                    handleRemoveLink(subjectName, lnk.id)
+                                    handleRemovePoint(subjectName, pt.id)
                                   }
-                                  className="p-1.5 bg-[#FFFDF9] hover:bg-[#FF7A59] border-2 border-[#141413] rounded text-[#141413] cursor-pointer self-end sm:self-auto"
-                                  title="Hapus link"
+                                  className="p-2 bg-[#F3EFE6] hover:bg-[#FF7A59] border-2 border-[#141413] rounded-lg text-[#141413] cursor-pointer shrink-0"
+                                  title="Hapus poin ini"
                                 >
-                                  <Trash2 className="w-3.5 h-3.5 stroke-[2.2]" />
+                                  <Trash2 className="w-4 h-4 stroke-[2.2]" />
                                 </button>
                               </div>
                             ))}
                           </div>
-                        )}
 
-                        {/* Tombol Tambah Poin & Tambah Link */}
-                        <div className="flex flex-wrap items-center gap-2 pt-1">
-                          <button
-                            type="button"
-                            onClick={() => handleAddPoint(subjectName)}
-                            className="bg-[#C8F560] hover:bg-[#b8e84b] text-[#141413] font-bold text-xs px-3 py-1.5 neo-btn-sm cursor-pointer flex items-center gap-1"
-                          >
-                            <Plus className="w-3.5 h-3.5 stroke-[2.6]" />
-                            <span>Tambah Poin Tugas</span>
-                          </button>
+                          {/* Daftar Input Link Opsional (Misal: Link Notion) */}
+                          {(links.length > 0 || openLinkKeys[key]) && (
+                            <div className="space-y-2 pt-1">
+                              <label className="block font-mono text-[11px] font-bold uppercase tracking-wider text-[#141413]">
+                                SISIPAN LINK OPSIONAL (NOTION / GDRIVE / LMS):
+                              </label>
+                              {links.map((lnk) => (
+                                <div
+                                  key={lnk.id}
+                                  className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-[#F3EFE6] p-2 border-2 border-[#141413] rounded-lg"
+                                >
+                                  <input
+                                    type="text"
+                                    value={lnk.label}
+                                    onChange={(e) =>
+                                      handleLinkChange(
+                                        subjectName,
+                                        lnk.id,
+                                        "label",
+                                        e.target.value
+                                      )
+                                    }
+                                    placeholder="Label (cth: Link Notion)"
+                                    className="sm:w-36 neo-input px-2.5 py-1.5 text-xs font-bold"
+                                  />
+                                  <input
+                                    type="text"
+                                    inputMode="url"
+                                    value={lnk.url}
+                                    onChange={(e) =>
+                                      handleLinkChange(
+                                        subjectName,
+                                        lnk.id,
+                                        "url",
+                                        e.target.value
+                                      )
+                                    }
+                                    placeholder="https://..."
+                                    className="flex-1 neo-input px-2.5 py-1.5 font-mono text-xs font-medium"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleRemoveLink(subjectName, lnk.id)
+                                    }
+                                    className="p-1.5 bg-[#FFFDF9] hover:bg-[#FF7A59] border-2 border-[#141413] rounded text-[#141413] cursor-pointer self-end sm:self-auto"
+                                    title="Hapus link"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5 stroke-[2.2]" />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
 
-                          <button
-                            type="button"
-                            onClick={() => handleAddLink(subjectName)}
-                            className="bg-[#DDD6FE] hover:bg-[#C4B5FD] text-[#141413] font-bold text-xs px-3 py-1.5 neo-btn-sm cursor-pointer flex items-center gap-1.5"
-                          >
-                            <LinkIcon className="w-3.5 h-3.5 stroke-[2.4]" />
-                            <span>+ Sisipkan Link (Notion/URL)</span>
-                          </button>
+                          {/* Tombol Tambah Poin & Tambah Link */}
+                          <div className="flex flex-wrap items-center gap-2 pt-1">
+                            <button
+                              type="button"
+                              onClick={() => handleAddPoint(subjectName)}
+                              className="bg-[#C8F560] hover:bg-[#b8e84b] text-[#141413] font-bold text-xs px-3 py-1.5 neo-btn-sm cursor-pointer flex items-center gap-1"
+                            >
+                              <Plus className="w-3.5 h-3.5 stroke-[2.6]" />
+                              <span>Tambah Poin Tugas</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleAddLink(subjectName)}
+                              className="bg-[#DDD6FE] hover:bg-[#C4B5FD] text-[#141413] font-bold text-xs px-3 py-1.5 neo-btn-sm cursor-pointer flex items-center gap-1.5"
+                            >
+                              <LinkIcon className="w-3.5 h-3.5 stroke-[2.4]" />
+                              <span>+ Sisipkan Link (Notion/URL)</span>
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </div>
         </div>
       </div>

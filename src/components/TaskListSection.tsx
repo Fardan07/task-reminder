@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { CalendarDays, CheckCircle2, ArrowRight } from "lucide-react";
+import { CalendarDays, CheckCircle2, ArrowRight, CalendarCog } from "lucide-react";
 import { DayOfWeek, SubjectDraft, WeeklyScheduleMap } from "@/types/task";
 import { DAYS_OF_WEEK, normalizeSubjectKey } from "@/data/mockData";
 import { isSubjectDraftActiveForDay } from "@/utils/reminderFormatter";
@@ -12,6 +12,7 @@ interface TaskListSectionProps {
   selectedDay: DayOfWeek;
   onSelectDay: (day: DayOfWeek) => void;
   onClearSubjectDraft: (subjectName: string) => void;
+  onOpenScheduleModal: () => void;
 }
 
 const DAY_HEADER_COLORS: Record<DayOfWeek, string> = {
@@ -28,6 +29,7 @@ export const TaskListSection: React.FC<TaskListSectionProps> = ({
   selectedDay,
   onSelectDay,
   onClearSubjectDraft,
+  onOpenScheduleModal,
 }) => {
   return (
     <section className="mt-8 bg-[#FFFDF9] neo-card overflow-hidden">
@@ -54,9 +56,14 @@ export const TaskListSection: React.FC<TaskListSectionProps> = ({
             </div>
           </div>
 
-          <span className="font-mono text-[11px] font-bold px-2.5 py-1 bg-[#F3EFE6] border-2 border-[#141413] rounded-full self-start sm:self-auto">
-            INDEX // SENIN–JUMAT
-          </span>
+          <button
+            type="button"
+            onClick={onOpenScheduleModal}
+            className="inline-flex items-center gap-1.5 text-xs font-extrabold px-3 py-1.5 bg-[#F3EFE6] hover:bg-[#C8F560] border-2 border-[#141413] rounded-full shadow-[2px_2px_0px_#141413] self-start sm:self-auto cursor-pointer transition-colors"
+          >
+            <CalendarCog className="w-3.5 h-3.5 stroke-[2.4]" />
+            <span>Ubah Susunan Jadwal</span>
+          </button>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
@@ -93,39 +100,45 @@ export const TaskListSection: React.FC<TaskListSectionProps> = ({
                   </div>
 
                   <ul className="p-3 space-y-1.5">
-                    {subjects.map((subj, idx) => {
-                      const key = normalizeSubjectKey(subj);
-                      const draft = drafts[key];
-                      const hasTask = isSubjectDraftActiveForDay(draft, day);
+                    {subjects.length === 0 ? (
+                      <li className="px-2.5 py-4 border-2 border-dashed border-[#141413]/30 rounded-lg text-center text-xs font-semibold text-[#141413]/60">
+                        Tidak ada jadwal mapel
+                      </li>
+                    ) : (
+                      subjects.map((subj, idx) => {
+                        const key = normalizeSubjectKey(subj);
+                        const draft = drafts[key];
+                        const hasTask = isSubjectDraftActiveForDay(draft, day);
 
-                      return (
-                        <li
-                          key={`${day}-${subj}-${idx}`}
-                          className={`px-2.5 py-1.5 border-2 border-[#141413] rounded-lg text-xs flex items-center justify-between gap-1.5 ${
-                            hasTask
-                              ? "bg-[#C8F560] font-extrabold shadow-[2px_2px_0px_#141413]"
-                              : "bg-[#FFFDF9] font-semibold text-[#141413]/70"
-                          }`}
-                        >
-                          <span className="truncate">{subj}</span>
-                          {hasTask ? (
-                            <button
-                              type="button"
-                              onClick={() => onClearSubjectDraft(subj)}
-                              title="Selesai / Kosongkan tugas mapel ini"
-                              className="px-1.5 py-0.5 bg-[#FFFDF9] hover:bg-[#FF7A59] border border-[#141413] rounded font-mono text-[10px] font-extrabold text-[#141413] cursor-pointer shrink-0 flex items-center gap-0.5"
-                            >
-                              <CheckCircle2 className="w-2.5 h-2.5 stroke-[2.5]" />
-                              <span>Reset</span>
-                            </button>
-                          ) : (
-                            <span className="font-mono text-[10px] font-bold text-[#141413]/50 shrink-0">
-                              - -
-                            </span>
-                          )}
-                        </li>
-                      );
-                    })}
+                        return (
+                          <li
+                            key={`${day}-${subj}-${idx}`}
+                            className={`px-2.5 py-1.5 border-2 border-[#141413] rounded-lg text-xs flex items-center justify-between gap-1.5 ${
+                              hasTask
+                                ? "bg-[#C8F560] font-extrabold shadow-[2px_2px_0px_#141413]"
+                                : "bg-[#FFFDF9] font-semibold text-[#141413]/70"
+                            }`}
+                          >
+                            <span className="truncate">{subj}</span>
+                            {hasTask ? (
+                              <button
+                                type="button"
+                                onClick={() => onClearSubjectDraft(subj)}
+                                title="Selesai / Kosongkan tugas mapel ini"
+                                className="px-1.5 py-0.5 bg-[#FFFDF9] hover:bg-[#FF7A59] border border-[#141413] rounded font-mono text-[10px] font-extrabold text-[#141413] cursor-pointer shrink-0 flex items-center gap-0.5"
+                              >
+                                <CheckCircle2 className="w-2.5 h-2.5 stroke-[2.5]" />
+                                <span>Reset</span>
+                              </button>
+                            ) : (
+                              <span className="font-mono text-[10px] font-bold text-[#141413]/50 shrink-0">
+                                - -
+                              </span>
+                            )}
+                          </li>
+                        );
+                      })
+                    )}
                   </ul>
                 </div>
 
