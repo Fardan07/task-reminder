@@ -1,5 +1,7 @@
 export type DayOfWeek = "SENIN" | "SELASA" | "RABU" | "KAMIS" | "JUMAT";
 
+export type ReminderTemplateStyle = "KLASIK" | "MODERN";
+
 export interface TaskLinkItem {
   id: string;
   label: string; // contoh: "Link Notion"

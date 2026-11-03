@@ -696,6 +696,7 @@ export default function DashboardPage() {
                       selectedIsoDate={selectedIsoDate}
                       schedule={classConfig.schedule}
                       drafts={drafts}
+                      classNameLabel={classConfig.className}
                     />
                   </div>
                 </div>

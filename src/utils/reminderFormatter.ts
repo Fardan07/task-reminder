@@ -1,4 +1,9 @@
-import { DayOfWeek, SubjectDraft, WeeklyScheduleMap } from "@/types/task";
+import {
+  DayOfWeek,
+  ReminderTemplateStyle,
+  SubjectDraft,
+  WeeklyScheduleMap,
+} from "@/types/task";
 import {
   formatDateUpperIndonesian,
   normalizeSubjectKey,
@@ -19,73 +24,142 @@ export function isSubjectDraftActiveForDay(
 }
 
 /**
+ * Helper untuk normalisasi teks agar tidak ada spasi ganda dan trim
+ */
+function normalizeSpaces(text: string): string {
+  return text.replace(/\s+/g, " ").trim();
+}
+
+/**
  * Menghasilkan teks reminder WhatsApp sesuai format baku:
  *
- * *❗REMINDER TUGAS HARI SELASA 03 NOVEMBER 2026❗*
- * *===============================================*
+ * A. Gaya Klasik:
+ * *❗REMINDER TUGAS HARI SELASA❗*
+ * *📅 03 NOVEMBER 2026*
+ * *============================*
  *
  * ○ *B.INDO*
  * - -
  *
- * ○ *MATEMATIKA*
- * - -
- *
  * ○ *KA - 2*
- *     • - Menyelesaikan LKPD Decision Tree
+ *    • - Menyelesaikan LKPD Decision Tree
  *
  * ○ *PAaS*
- *    • - Menyelesaikan Tugas Integrasi Frontend + Express + Cloudflare D1 (Minggu ke - 7) lalu di presentasikan ke Pak Novra
- *    • - Link Notion : https://rumbling-tote-100.notion.site/...
+ *    • - Menyelesaikan Tugas Integrasi Frontend
+ *    • - *Link Notion :*
+ *      https://...
+ *
+ * B. Gaya Modern:
+ * 📌 *REMINDER TUGAS — XII SIJA 1*
+ * 🗓️ *SELASA, 03 NOVEMBER 2026*
+ * ────────────────────────────
+ *
+ * 🔹 *PAaS*
+ * • Menyelesaikan Tugas Integrasi Frontend
+ * 🔗 *Link Notion:*
+ * https://...
+ *
+ * 🔸 *B.INDO*
+ * _Tidak ada tugas (- -)_
  */
 export function generateWhatsAppReminder(
   selectedDay: DayOfWeek,
   isoDate: string,
   schedule: WeeklyScheduleMap,
-  drafts: Record<string, SubjectDraft>
+  drafts: Record<string, SubjectDraft>,
+  style: ReminderTemplateStyle = "KLASIK",
+  classNameLabel = "KELAS KITA"
 ): string {
   const formattedDate = formatDateUpperIndonesian(isoDate);
   const daySubjects = schedule[selectedDay] || [];
+  const cleanClassName = normalizeSpaces(classNameLabel) || "KELAS KITA";
 
-  const headerLine = formattedDate
-    ? `*❗REMINDER TUGAS HARI ${selectedDay.toUpperCase()} ${formattedDate}❗*`
-    : `*❗REMINDER TUGAS HARI ${selectedDay.toUpperCase()}❗*`;
-  const dividerLine = `*===============================================*`;
-
-  if (daySubjects.length === 0) {
-    return `${headerLine}\n${dividerLine}\n\n_Belum ada jadwal mata pelajaran di hari ${selectedDay}._`;
+  // 1. GENERATE HEADER & DIVIDER (Maksimal 28 karakter agar tidak wrap di HP)
+  let headerBlock = "";
+  if (style === "MODERN") {
+    const classHeader = `📌 *REMINDER TUGAS — ${cleanClassName.toUpperCase()}*`;
+    const dateHeader = formattedDate
+      ? `🗓️ *${selectedDay.toUpperCase()}, ${formattedDate}*`
+      : `🗓️ *${selectedDay.toUpperCase()}*`;
+    const dividerLine = "─".repeat(28);
+    headerBlock = `${classHeader}\n${dateHeader}\n${dividerLine}`;
+  } else {
+    // KLASIK
+    const titleHeader = `*❗REMINDER TUGAS HARI ${selectedDay.toUpperCase()}❗*`;
+    const dateHeader = formattedDate ? `*📅 ${formattedDate}*` : "";
+    const dividerLine = "*============================*"; // Tepat 28 karakter
+    headerBlock = dateHeader
+      ? `${titleHeader}\n${dateHeader}\n${dividerLine}`
+      : `${titleHeader}\n${dividerLine}`;
   }
 
+  // 2. EMPTY SCHEDULE HANDLER
+  if (daySubjects.length === 0) {
+    return `${headerBlock}\n\n_Belum ada jadwal mata pelajaran di hari ${selectedDay}._`;
+  }
+
+  // 3. GENERATE SUBJECT BLOCKS
   const subjectBlocks = daySubjects.map((subjectName) => {
     const key = normalizeSubjectKey(subjectName);
     const draft = drafts[key];
     const isActive = isSubjectDraftActiveForDay(draft, selectedDay);
 
-    if (!isActive || !draft) {
-      return `○ *${subjectName}*\n- -`;
-    }
-
-    const lines: string[] = [];
-    draft.points.forEach((pt) => {
-      const cleaned = pt.text.trim();
-      if (cleaned) {
-        lines.push(`    • - ${cleaned}`);
+    if (style === "MODERN") {
+      if (!isActive || !draft) {
+        return `🔸 *${subjectName}*\n_Tidak ada tugas (- -)_`;
       }
-    });
 
-    draft.links.forEach((lnk) => {
-      const url = lnk.url.trim();
-      const label = lnk.label.trim() || "Link";
-      if (url) {
-        lines.push(`    • - ${label} : ${url}`);
+      const lines: string[] = [];
+      draft.points.forEach((pt) => {
+        const cleaned = normalizeSpaces(pt.text);
+        if (cleaned) {
+          lines.push(`• ${cleaned}`);
+        }
+      });
+
+      draft.links.forEach((lnk) => {
+        const url = lnk.url.trim();
+        const label = normalizeSpaces(lnk.label) || "Link";
+        if (url) {
+          lines.push(`🔗 *${label}:*\n${url}`);
+        }
+      });
+
+      if (lines.length === 0) {
+        return `🔸 *${subjectName}*\n_Tidak ada tugas (- -)_`;
       }
-    });
 
-    if (lines.length === 0) {
-      return `○ *${subjectName}*\n- -`;
+      return `🔹 *${subjectName}*\n${lines.join("\n")}`;
+    } else {
+      // KLASIK
+      if (!isActive || !draft) {
+        return `○ *${subjectName}*\n- -`;
+      }
+
+      const lines: string[] = [];
+      draft.points.forEach((pt) => {
+        const cleaned = normalizeSpaces(pt.text);
+        if (cleaned) {
+          lines.push(`   • - ${cleaned}`);
+        }
+      });
+
+      draft.links.forEach((lnk) => {
+        const url = lnk.url.trim();
+        const label = normalizeSpaces(lnk.label) || "Link";
+        if (url) {
+          // Format rapi link WhatsApp: label di atas, URL di baris baru berindentasi
+          lines.push(`   • - *${label} :*\n     ${url}`);
+        }
+      });
+
+      if (lines.length === 0) {
+        return `○ *${subjectName}*\n- -`;
+      }
+
+      return `○ *${subjectName}*\n${lines.join("\n")}`;
     }
-
-    return `○ *${subjectName}*\n${lines.join("\n")}`;
   });
 
-  return `${headerLine}\n${dividerLine}\n\n${subjectBlocks.join("\n\n")}`;
+  return `${headerBlock}\n\n${subjectBlocks.join("\n\n")}`;
 }
